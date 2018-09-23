@@ -1,14 +1,19 @@
 #!/bin/sh
-#备份文件到u盘中,只需要指定备份的目录即可
+
+#==================================================================
+# 使用的前提: centos6系统， 安装了rsync
+# 备份文件到u盘中,只需要指定备份的目录即可
+#==================================================================
 
 #检查u盘挂载情况
 USB(){
  flag=`sudo -u root fdisk -l|grep  '(LBA)'|awk '{print $1}'`;
  echo $flag;
 }
+
 U=`USB`
 if [ -z ${U} ];then
-   sudo -u root sh /home/usb.sh
+   sudo -u root sh ./usb.sh
 fi
 
 U=`USB`
