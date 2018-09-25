@@ -19,3 +19,10 @@
 
 - nginx.sh : ubuntu 本地源码安装 nginx 服务器
 - mysql.sh : ubuntu 本地源码安装 mysql, 针对5.7系列
+
+
+### commands
+
+- if.sh : 常见的if条件判断语句
+- vars.sh : 变量替换操作
+- stdout.sh : printf vs echo
