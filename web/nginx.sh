@@ -3,25 +3,33 @@
 #======================================================
 # 条件: ubuntu系统
 #
-# 源码编译安装nginx
+# 源码编译安装 nginx
 #======================================================
 
 INSTALL_DIR=/opt/local/nginx
 VERSION=1.14.0
 WORKDIR=`pwd`/nginx-${VERSION}
+USER=`whoami`
+
+if [ "${USER}" != "root" ]; then
+    echo "请使用root权限执行"
+    exit
+fi
 
 #######################  准备工作 #######################################
 # 安装下载工具
 if [ -z `whereis axel | grep -E -o '/usr/bin/axel'` ]; then
-   sudo apt-get update && sudo apt-get install axel -y
+   apt-get update && sudo apt-get install axel -y
 fi
 
 # 安装依赖的包
-sudo apt-get update && \
-sudo apt-get install openssl libssl-dev libpcre3 libpcre3-dev zlib1g-dev libxml2 libxml2-dev libxslt-dev perl libperl-dev  -y
+#apt-get update && \
+apt-get install openssl libssl-dev libpcre3 libpcre3-dev zlib1g-dev libxml2 libxml2-dev \
+libxslt-dev perl libperl-dev  -y
 
 # 获取源代码
-axel -n 100 http://nginx.org/download/nginx-${VERSION}.tar.gz -f nginx-${VERSION}.tar.gz
+echo http://nginx.org/download/nginx-${VERSION}.tar.gz
+axel -n 100 -o nginx-${VERSION}.tar.gz http://nginx.org/download/nginx-${VERSION}.tar.gz
 
 # 解压文件
 tar -zvxf nginx-${VERSION}.tar.gz && cd nginx-${VERSION}
@@ -30,16 +38,22 @@ tar -zvxf nginx-${VERSION}.tar.gz && cd nginx-${VERSION}
 
 ##########################  源码编译安装  #################################
 # 创建目录
-sudo mkdir -p ${INSTALL_DIR}
-sudo mkdir -p ${INSTALL_DIR}/tmp/client
-sudo mkdir -p ${INSTALL_DIR}/tmp/proxy
-sudo mkdir -p ${INSTALL_DIR}/tmp/fcgi
-sudo mkdir -p ${INSTALL_DIR}/tmp/uwsgi
-sudo mkdir -p ${INSTALL_DIR}/tmp/scgi
+rm -rf  ${INSTALL_DIR} && \
+mkdir -p ${INSTALL_DIR} && \
+mkdir -p ${INSTALL_DIR}/tmp/client && \
+mkdir -p ${INSTALL_DIR}/tmp/proxy && \
+mkdir -p ${INSTALL_DIR}/tmp/fcgi && \
+mkdir -p ${INSTALL_DIR}/tmp/uwsgi && \
+mkdir -p ${INSTALL_DIR}/tmp/scgi
 
 # 创建用户组并修改权限
-sudo groupadd -r www
-sudo useradd -r www -g www
+if [ -z `cat /etc/group | grep -E '^www:'` ]; then
+    groupadd -r www
+fi
+
+if [ -z `cat /etc/password | grep -E '^www:'` ]; then
+    useradd -r www -g www
+fi
 
 # 编译
 ${WORKDIR}/configure \
@@ -74,15 +88,21 @@ ${WORKDIR}/configure \
 
 
 # 安装
-make -j4 && sudo make install
+cpu=`cat /proc/cpuinfo |grep 'processor'|wc -l`
+make -j${cpu} && sudo make install
 
 
 # 启动
-sudo chown -R ${INSTALL_DIR} && \
-sudo ${INSTALL_DIR}/sbin/nginx
+chown -R www:www ${INSTALL_DIR} && \
+${INSTALL_DIR}/sbin/nginx
 
+# 测试
+if ps aux|grep -E  "master.*/opt/local/nginx/sbin/nginx$"; then
+    echo "nginx install success!!!"
+fi
 
 
 ##############################  文件清理  ##################################
 # 清理文件
-sudo rm -rf nginx-*
+cd ../ && \
+rm -rf nginx-*

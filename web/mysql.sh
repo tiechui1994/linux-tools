@@ -11,46 +11,59 @@ WORKDIR=`pwd`/mysql-${VERSION}
 INSTALL_DIR=/opt/local/mysql
 USER=`whoami`
 
-##############################  准备工作  #################################
+if [ "${USER}" != "root" ]; then
+    echo "请使用root权限执行"
+    exit
+fi
+
+##############################  准备工作  #######################################
 # 安装依赖包
-sudo apt-get update && \
-sudo apt-get install cmake build-essential libncurses5-dev bison -y
+apt-get update && \
+apt-get install cmake build-essential libncurses5-dev bison -y
 
 # 安装下载工具
 if [ -z `whereis axel | grep -E -o '/usr/bin/axel'` ]; then
-   sudo apt-get update && sudo apt-get install axel -y
+   apt-get update && sudo apt-get install axel -y
 fi
 
 
 # 下载源码包
-axel -n 100 https://cdn.mysql.com//Downloads/MySQL-5.7/mysql-${VERSION}.tar.gz -f mysql-${VERSION}.tar.gz
+axel -n 100 https://cdn.mysql.com//Downloads/MySQL-5.7/mysql-${VERSION}.tar.gz \
+-o mysql-${VERSION}.tar.gz
 
 # 解压源文件
 if [ -e ${WORKDIR} ]; then
-    sudo rm -rf ${WORKDIR}
+   rm -rf ${WORKDIR}
 fi
 
-sudo mkdir ${WORKDIR} && \
+mkdir ${WORKDIR} && \
 tar -zvxf mysql-${VERSION}.tar.gz -C ${WORKDIR} --strip-components 1 && \
 cd ${WORKDIR}
 
 # 下载boost依赖库文件
 mkdir -p ${WORKDIR}/boost && \
-axel -n 100 https://nchc.dl.sourceforge.net/project/boost/boost/1.59.0/boost_1_59_0.tar.gz -f ${WORKDIR}/boost
+axel -n 100 https://nchc.dl.sourceforge.net/project/boost/boost/1.59.0/boost_1_59_0.tar.gz \
+-o ${WORKDIR}/boost/
 
 
 
 ##############################  编译安装  ####################################
 # 增加用户
-sudo groupadd -r mysql
-sudo useradd -r -g mysql -s /sbin/nologin mysql
+if [ -z `cat /etc/group | grep -E '^mysql:'` ]; then
+   groupadd -r mysql
+fi
+
+if [ -z `cat /etc/password | grep -E '^mysql:'` ]; then
+    useradd -r -g mysql -s /sbin/nologin mysql
+fi
 
 # 创建文件
-sudo mkdir -p ${INSTALL_DIR}/mysql
-sudo mkdir -p ${INSTALL_DIR}/data
-sudo mkdir -p ${INSTALL_DIR}/logs
-sudo mkdir -p ${INSTALL_DIR}/tmp
-sudo mkdir -p ${INSTALL_DIR}/conf
+rm -rf ${INSTALL_DIR} && \
+mkdir -p ${INSTALL_DIR}/mysql && \
+mkdir -p ${INSTALL_DIR}/data && \
+mkdir -p ${INSTALL_DIR}/logs && \
+mkdir -p ${INSTALL_DIR}/tmp && \
+mkdir -p ${INSTALL_DIR}/conf
 
 # cmake编译
 cd ${WORKDIR} && \
@@ -71,21 +84,20 @@ cmake . \
 -DDEFAULT_COLLATION=utf8_general_ci
 
 # 安装
-make -j4 && sudo make install
+cpu=`cat /proc/cpuinfo |grep 'processor'|wc -l`
+make -j${cpu} && make install
 
 
 
-################################## 增加数据库配置  ############################################
-# 创建配置文件my.cnf(确保文件没有被创建,而且保证文件可以写入,需要修改权限)
+############################  增加数据库配置  #####################################
+# 创建配置文件my.cnf(确保文件没有被创建)
 if [ -e ${INSTALL_DIR}/conf/my.cnf ];then
-    sudo rm -rf ${INSTALL_DIR}/conf/my.cnf
+   rm -rf ${INSTALL_DIR}/conf/my.cnf
 fi
 
-sudo touch ${INSTALL_DIR}/conf/my.cnf && \
-sudo chown ${USER}:${USER} ${INSTALL_DIR}/conf/my.cnf
 
 # 写入配置内容
-sudo -u root cat >> ${INSTALL_DIR}/conf/my.cnf << EOF
+cat >> ${INSTALL_DIR}/conf/my.cnf << EOF
 [client]
     port=3306
     socket=${INSTALL_DIR}/data/mysql.sock
@@ -123,31 +135,31 @@ sudo -u root cat >> ${INSTALL_DIR}/conf/my.cnf << EOF
 EOF
 
 # 修改用户所有者权限
-sudo chown -R mysql:mysql ${INSTALL_DIR}
+chown -R mysql:mysql ${INSTALL_DIR}
 
 # 服务配置
-sudo cp ${INSTALL_DIR}/mysql/support-files/mysql.server /etc/init.d/mysqld && \
-sudo update-rc.d mysqld defaults
+cp ${INSTALL_DIR}/mysql/support-files/mysql.server /etc/init.d/mysqld && \
+update-rc.d mysqld defaults
 
 
-############################# 数据库数据的初始化 ####################################
+##########################  数据库数据的初始化  ##############################
 # 初始化数据(需要清空logs和data目录下的所有的内容)
-sudo rm -rf ${INSTALL_DIR}/logs/* && \
-sudo rm -rf ${INSTALL_DIR}/data/* && \
-sudo ${INSTALL_DIR}/mysql/bin/mysqld \
+rm -rf ${INSTALL_DIR}/logs/* && \
+rm -rf ${INSTALL_DIR}/data/* && \
+${INSTALL_DIR}/mysql/bin/mysqld \
  --initialize \
 --user=mysql \
 --basedir=${INSTALL_DIR}/mysql \
 --datadir=${INSTALL_DIR}/data
 
 # 数据库初始化检查
-if sudo cat ${INSTALL_DIR}/logs/mysql.err | grep -E -i '\[error\]'; then
+if cat ${INSTALL_DIR}/logs/mysql.err | grep -E -i '\[error\]'; then
     echo "mysql初始化出现问题, 请查看详情文件${INSTALL_DIR}/logs/mysql.err自己解决"
-    exit -1
+    exit
 fi
 
 # 获取数据库临时密码, 并进行展示
-password=`sudo cat ${INSTALL_DIR}/logs/mysql.err | grep 'password' | cut -d ':' -f4`
+password=`cat ${INSTALL_DIR}/logs/mysql.err | grep 'password' | cut -d ':' -f4`
 
 echo "======================================="
 echo "当前密码是: "${password}
@@ -161,5 +173,6 @@ echo "mysql install success!!"
 
 
 
-##################################  文件清理  #############################
-sudo rm -rf mysql-*
+############################  文件清理  #############################
+cd ../ && \
+rm -rf mysql-*
