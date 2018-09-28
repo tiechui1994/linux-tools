@@ -24,3 +24,19 @@ point_command() {
     fi
 }
 
+# 输出大段原始文本
+output_text() {
+    user=$(whoami)
+    cat >&2 <<-'EOF' # 错误输出
+	Hello ${user}:
+	    This big text!!
+	EOF
+
+
+	cat >&1 <<-'EOF' # 标准输出
+	Hello ${user}:
+	    This big text!!
+	EOF
+}
+
+output_text
