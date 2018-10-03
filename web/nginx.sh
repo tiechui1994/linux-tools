@@ -23,9 +23,8 @@ if [ -z `whereis axel | grep -E -o '/usr/bin/axel'` ]; then
 fi
 
 # 安装依赖的包
-#apt-get update && \
-apt-get install openssl libssl-dev libpcre3 libpcre3-dev zlib1g-dev libxml2 libxml2-dev \
-libxslt-dev perl libperl-dev  -y
+apt-get update && \
+apt-get install zlib1g-dev openssl libssl-dev libpcre3 libpcre3-dev libxml2 libxml2-dev libxslt-dev perl libperl-dev -y
 
 # 获取源代码
 echo http://nginx.org/download/nginx-${VERSION}.tar.gz
@@ -98,6 +97,7 @@ ${INSTALL_DIR}/sbin/nginx
 
 # 测试
 if ps aux|grep -E  "master.*/opt/local/nginx/sbin/nginx$"; then
+    echo "========================================================"
     echo "nginx install success!!!"
 fi
 

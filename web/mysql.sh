@@ -158,8 +158,15 @@ if cat ${INSTALL_DIR}/logs/mysql.err | grep -E -i '\[error\]'; then
     exit
 fi
 
+# 启动服务
+service mysqld start
+if [ -z "$(service mysqld status |grep -o 'Active: active (running)')" ];then
+    echo "mysql启动失败,请检查原因"
+    exit
+fi
+
 # 获取数据库临时密码, 并进行展示
-password=`cat ${INSTALL_DIR}/logs/mysql.err | grep 'password' | cut -d ':' -f4`
+password="$(cat ${INSTALL_DIR}/logs/mysql.err | grep 'temporary password' | cut -d ' ' -f11)"
 
 echo "======================================="
 echo "当前密码是: "${password}
