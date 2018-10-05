@@ -15,7 +15,7 @@ fi
 sudo -u root modprobe usb-storage
 
 # 查看USB的设备
-USB=`sudo -u root fdisk -l|grep  '(LBA)'|awk '{print $1}'`
+USB="$(sudo -u root fdisk -l|grep  '(LBA)'|awk '{print $1}')"
 if [ -z ${USB} ];then
    echo -e "\e[1;32mThe disk is not exist!\e[0m";
    exit 1;

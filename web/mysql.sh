@@ -7,9 +7,9 @@
 #==============================================================
 
 VERSION=5.7.23
-WORKDIR=`pwd`/mysql-${VERSION}
+WORKDIR=$(pwd)/mysql-${VERSION}
 INSTALL_DIR=/opt/local/mysql
-USER=`whoami`
+USER=$(whoami)
 
 if [ "${USER}" != "root" ]; then
     echo "请使用root权限执行"
@@ -22,7 +22,7 @@ apt-get update && \
 apt-get install cmake build-essential libncurses5-dev bison -y
 
 # 安装下载工具
-if [ -z `whereis axel | grep -E -o '/usr/bin/axel'` ]; then
+if [ -z "$(whereis axel | grep -E -o '/usr/bin/axel')" ]; then
    apt-get update && sudo apt-get install axel -y
 fi
 
@@ -49,11 +49,11 @@ axel -n 100 https://nchc.dl.sourceforge.net/project/boost/boost/1.59.0/boost_1_5
 
 ##############################  编译安装  ####################################
 # 增加用户
-if [ -z `cat /etc/group | grep -E '^mysql:'` ]; then
+if [ -z "$(cat /etc/group | grep -E '^mysql:')" ]; then
    groupadd -r mysql
 fi
 
-if [ -z `cat /etc/password | grep -E '^mysql:'` ]; then
+if [ -z "$(cat /etc/password | grep -E '^mysql:')" ]; then
     useradd -r -g mysql -s /sbin/nologin mysql
 fi
 
@@ -84,7 +84,7 @@ cmake . \
 -DDEFAULT_COLLATION=utf8_general_ci
 
 # 安装
-cpu=`cat /proc/cpuinfo |grep 'processor'|wc -l`
+cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
 make -j${cpu} && make install
 
 

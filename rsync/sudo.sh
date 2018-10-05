@@ -5,7 +5,7 @@
 # ===============================================================================
 
 # 执行命令的用户检查, 必须是root用户
-if [ `whoami` != "root" ];then
+if [ "$(whoami)" != "root" ];then
  echo -e "\e[1;31mNeed siwtch to root!\e[0m";
  exit;
 fi

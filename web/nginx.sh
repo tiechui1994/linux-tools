@@ -8,8 +8,8 @@
 
 INSTALL_DIR=/opt/local/nginx
 VERSION=1.14.0
-WORKDIR=`pwd`/nginx-${VERSION}
-USER=`whoami`
+WORKDIR=$(pwd)/nginx-${VERSION}
+USER=$(whoami)
 
 if [ "${USER}" != "root" ]; then
     echo "请使用root权限执行"
@@ -18,7 +18,7 @@ fi
 
 #######################  准备工作 #######################################
 # 安装下载工具
-if [ -z `whereis axel | grep -E -o '/usr/bin/axel'` ]; then
+if [ -z "$(whereis axel | grep -E -o '/usr/bin/axel')" ]; then
    apt-get update && sudo apt-get install axel -y
 fi
 
@@ -46,11 +46,11 @@ mkdir -p ${INSTALL_DIR}/tmp/uwsgi && \
 mkdir -p ${INSTALL_DIR}/tmp/scgi
 
 # 创建用户组并修改权限
-if [ -z `cat /etc/group | grep -E '^www:'` ]; then
+if [ -z "$(cat /etc/group | grep -E '^www:')" ]; then
     groupadd -r www
 fi
 
-if [ -z `cat /etc/password | grep -E '^www:'` ]; then
+if [ -z "$(cat /etc/password | grep -E '^www:')" ]; then
     useradd -r www -g www
 fi
 
@@ -87,7 +87,7 @@ ${WORKDIR}/configure \
 
 
 # 安装
-cpu=`cat /proc/cpuinfo |grep 'processor'|wc -l`
+cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
 make -j${cpu} && sudo make install
 
 
