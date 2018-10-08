@@ -19,6 +19,8 @@
 
 - nginx.sh : ubuntu 本地源码安装 nginx 服务器
 - mysql.sh : ubuntu 本地源码安装 mysql, 针对5.7系列
+- axel.sh : ubuntu 本地源码安装 axel
+- redis.sh : ubuntu 本地源码安装 redis
 
 
 ### commands
