@@ -32,7 +32,7 @@ fi
 
 curl -o axel-${VERSION}.tar.gz ${BASE}/v${VERSION}/axel-${VERSION}.tar.gz && \
 tar -zvxf axel-${VERSION}.tar.gz && \
-cd axel-${VERSION}
+cd ${WORK_DIR}
 
 # 安装依赖文件
 apt-get update && \
