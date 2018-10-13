@@ -62,8 +62,8 @@ update-rc.d redis defaults && \
 update-rc.d redis disable $(runlevel | cut -d ' ' -f2)
 
 sed -i \
-    -e 's|^daemonize|daemonize yes|g' \
-    -e 's|^supervised|supervised auto|g' \
+    -e 's|^daemonize.*|daemonize yes|g' \
+    -e 's|^supervised.*|supervised auto|g' \
     -e 's|^pidfile.*|pidfile /opt/local/redis/data/redis_6379.pid|g' \
     -e 's|^logfile.*|logfile /opt/local/redis/logs/redis.log|g' \
     ${INSTALL_DIR}/conf/redis.conf
