@@ -25,11 +25,19 @@ def get_all_message_id(client):
 
 
 async def filter_need_delete_email(client, messages):
+    async def fetch(message_id):
+        return client.fetch([message_id], ['BODY[]'])
+
     delete_ids = set()
     for mid in messages:
-        data = client.fetch([mid], ['BODY[]'])
+        data = await fetch(mid)
         message = email.message_from_string(data[mid][b'BODY[]'].decode('utf-8'))
-        if email.utils.parseaddr(message.get('from'))[1] != "noreply@gitlab.broadlink.com.cn":
+        email_from = email.utils.parseaddr(message.get('from'))[1]
+        if email_from == "no-reply@sns.amazonaws.com":
+            delete_ids.add(mid)
+            continue
+
+        if email_from != "noreply@gitlab.broadlink.com.cn":
             continue
 
         for part in message.walk():
