@@ -1,4 +1,5 @@
 import email
+import os
 import re
 import sys
 import asyncio
@@ -7,11 +8,15 @@ import time
 from bs4 import BeautifulSoup
 from imapclient import IMAPClient
 
+MAIL_DOMAIN = os.getenv("MAIL_DOMAIN")
+MAIL_NAME = os.getenv("MAIL_NAME")
+MAIL_PASSWD = os.getenv("MAIL_PASSWD")
+
 
 def login():
-    client = IMAPClient(host="imap.broadlink.com.cn", port=143, ssl=False)
+    client = IMAPClient(host="imap.{}".format(MAIL_DOMAIN), port=143, ssl=False)
     try:
-        client.login("bao.qi@broadlink.com.cn", "0214.abc")
+        client.login("{}@{}".format(MAIL_NAME, MAIL_DOMAIN), MAIL_PASSWD)
         return client
     except client.Error as e:
         client.logout()
@@ -26,7 +31,7 @@ def get_all_message_id(client):
 
 async def filter_need_delete_email(client, messages):
     async def fetch(message_id):
-        return client.fetch([message_id], ['BODY[]'])
+        return client.fetch([message_id], ['BODY[]'])  # 瓶颈, 不能并发访问
 
     delete_ids = set()
     for mid in messages:
@@ -37,7 +42,7 @@ async def filter_need_delete_email(client, messages):
             delete_ids.add(mid)
             continue
 
-        if email_from != "noreply@gitlab.broadlink.com.cn":
+        if email_from != "noreply@gitlab.{}".format(MAIL_DOMAIN):
             continue
 
         for part in message.walk():
@@ -58,7 +63,8 @@ async def filter_need_delete_email(client, messages):
                         or re.match(r"\s+服务配置生效通知", text) \
                         or re.match(r"\s+更新域名通知", text) \
                         or re.match(r"\s+nginx配置下发通知", text) \
-                        or re.match(r"\s+nginx配置变更通知", text):
+                        or re.match(r"\s+nginx配置变更通知", text) \
+                        or re.match(r"\s+hosts变更通知", text):
                     delete_ids.add(mid)
 
     return delete_ids
