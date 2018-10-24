@@ -6,6 +6,23 @@
 
 ps
 
+# STAT列的含义:
+#    R 运行. 正在运行或者在运行队列中等待
+#    S 休眠. 在等待某个事件,信号
+#    T 停止. 进程收到信号SIGSTOP, SIGSTP, SIGINT, SIGTOU信号
+#    D 不可中断的休眠. 通常是IO
+#    X 死掉的进程
+#    Z 僵尸进程
+#
+#    < 高优先级
+#    N 低优先级
+#
+#    L 有pages在内存中locked. 用于实时或自定义IO
+#
+#    s 进程领导者, 其有子进程
+#    I 多线程(使用CLONE_THREAD)
+#    + 位于前台进程组
+
 top
 
 nice
