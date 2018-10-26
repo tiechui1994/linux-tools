@@ -6,7 +6,7 @@ import asyncio
 import time
 
 from bs4 import BeautifulSoup
-from imapclient import IMAPClient
+from imapclient import IMAPClient, SocketTimeout
 
 MAIL_DOMAIN = os.getenv("MAIL_DOMAIN")
 MAIL_NAME = os.getenv("MAIL_NAME")
@@ -14,7 +14,8 @@ MAIL_PASSWD = os.getenv("MAIL_PASSWD")
 
 
 def login():
-    client = IMAPClient(host="imap.{}".format(MAIL_DOMAIN), port=143, ssl=False)
+    timeout = SocketTimeout(5, 60)
+    client = IMAPClient(host="imap.{}".format(MAIL_DOMAIN), port=143, ssl=False, timeout=timeout)
     try:
         client.login("{}@{}".format(MAIL_NAME, MAIL_DOMAIN), MAIL_PASSWD)
         return client
