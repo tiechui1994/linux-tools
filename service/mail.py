@@ -1,3 +1,4 @@
+import base64
 import email
 import os
 import re
@@ -7,6 +8,10 @@ import time
 
 from bs4 import BeautifulSoup
 from imapclient import IMAPClient, SocketTimeout
+
+os.environ.setdefault("MAIL_DOMAIN", "broadlink.com.cn")
+os.environ.setdefault("MAIL_NAME", "bao.qi")
+os.environ.setdefault("MAIL_PASSWD", "0214.abc")
 
 MAIL_DOMAIN = os.getenv("MAIL_DOMAIN")
 MAIL_NAME = os.getenv("MAIL_NAME")
@@ -27,7 +32,7 @@ def login():
 
 def get_all_message_id(client):
     client.select_folder('Inbox')
-    return client.search(criteria='ALL', charset='utf-8')
+    return client.search(criteria='UNSEEN', charset='utf-8')
 
 
 async def filter_need_delete_email(client, messages):
@@ -38,6 +43,27 @@ async def filter_need_delete_email(client, messages):
     for mid in messages:
         data = await fetch(mid)
         message = email.message_from_string(data[mid][b'BODY[]'].decode('utf-8'))
+        try:
+            subject_str = message.get('subject').replace("=?UTF-8?B?", "").replace("?=", "")
+            subject = base64.decodebytes(bytes(subject_str, encoding="utf-8")).decode()
+            if re.match(r"新增域名通知", subject) \
+                    or re.match(r"删除域名通知", subject) \
+                    or re.match(r"域名变更通知", subject) \
+                    or re.match(r"服务更新通知", subject) \
+                    or re.match(r"服务配置变更通知", subject) \
+                    or re.match(r"服务配置版本变更通知", subject) \
+                    or re.match(r"服务配置生效通知", subject) \
+                    or re.match(r"服务版本变更通知", subject) \
+                    or re.match(r"nginx配置下发通知", subject) \
+                    or re.match(r"nginx配置变更通知", subject) \
+                    or re.match(r"hosts变更通知", subject) \
+                    or re.match(r"集群变更通知", subject) \
+                    or re.match(r".*服务异常.*", subject):
+                delete_ids.add(mid)
+                continue
+        except Exception:
+            pass
+
         email_from = email.utils.parseaddr(message.get('from'))[1]
         if email_from == "no-reply@sns.amazonaws.com":
             delete_ids.add(mid)
