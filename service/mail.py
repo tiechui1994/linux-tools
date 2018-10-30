@@ -9,10 +9,6 @@ import time
 from bs4 import BeautifulSoup
 from imapclient import IMAPClient, SocketTimeout
 
-os.environ.setdefault("MAIL_DOMAIN", "broadlink.com.cn")
-os.environ.setdefault("MAIL_NAME", "bao.qi")
-os.environ.setdefault("MAIL_PASSWD", "0214.abc")
-
 MAIL_DOMAIN = os.getenv("MAIL_DOMAIN")
 MAIL_NAME = os.getenv("MAIL_NAME")
 MAIL_PASSWD = os.getenv("MAIL_PASSWD")
