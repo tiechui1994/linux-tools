@@ -21,6 +21,7 @@
 - mysql.sh : ubuntu 本地源码安装 mysql, 针对5.7系列
 - axel.sh : ubuntu 本地源码安装 axel
 - redis.sh : ubuntu 本地源码安装 redis
+- postgresql : ubuntu 本地源码安装 postgresql
 
 
 ### commands
@@ -28,3 +29,6 @@
 - if.sh : 常见的if条件判断语句
 - vars.sh : 变量替换操作
 - stdout.sh : printf vs echo
+- function.sh : 函数案例
+- process.sh : 进程管理命令
+- ip.sh : ip命令介绍
