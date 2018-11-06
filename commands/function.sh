@@ -39,4 +39,85 @@ output_text() {
 	EOF
 }
 
-output_text
+# 获取发行商
+get_distributor() {
+	distributor=""
+	if [ -r /etc/os-release ]; then
+		distributor="$(. /etc/os-release && echo "${ID}")"
+	fi
+	echo "${distributor}"
+}
+
+get_codename() {
+   distributor=$( get_distributor )
+   distributor="$(echo "$distributor" | tr '[:upper:]' '[:lower:]')"
+
+   case "${distributor}" in
+        ubuntu)
+			if command_exists lsb_release; then
+				codename="$(lsb_release --codename | cut -f2)"
+			fi
+
+			if [ -z "${codename}" ] && [ -r /etc/lsb-release ]; then
+				codename="$(. /etc/lsb-release && echo "$DISTRIB_CODENAME")"
+			fi
+		;;
+
+		debian|raspbian)
+			codename="$(sed 's/\/.*//' /etc/debian_version | sed 's/\..*//')"
+			case "$codename" in
+				9)
+					codename="stretch"
+				;;
+				8)
+					codename="jessie"
+				;;
+				7)
+					codename="wheezy"
+				;;
+			esac
+		;;
+
+		centos)
+			if [ -z "$codename" ] && [ -r /etc/os-release ]; then
+				codename="$(. /etc/os-release && echo "$VERSION_ID")"
+			fi
+		;;
+
+		rhel|ol|sles)
+			ee_notice "$distributor"
+			exit 1
+			;;
+
+		*)
+			if command_exists lsb_release; then
+				codename="$(lsb_release --release | cut -f2)"
+			fi
+
+			if [ -z "$codename" ] && [ -r /etc/os-release ]; then
+				codename="$(. /etc/os-release && echo "$VERSION_ID")"
+			fi
+		;;
+
+	esac
+
+	echo "$codename"
+}
+
+install() {
+    distributor=$( get_distributor )
+    distributor="$(echo "$distributor" | tr '[:upper:]' '[:lower:]')"
+
+    case "${distributor}" in
+		ubuntu|debian|raspbian)
+			echo "${distributor}"
+			exit 0
+			;;
+		centos|fedora)
+		    echo "${distributor}"
+			exit 0
+			;;
+	esac
+}
+
+install

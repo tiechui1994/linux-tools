@@ -16,6 +16,7 @@ command_exists() {
 
 if [ "$(whoami)" != "root" ]; then
     echo "Please use root privileges to execute"
+    exit
 fi
 
 if command_exists axel; then
