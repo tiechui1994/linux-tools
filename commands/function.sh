@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#======================================
-# 基本命令函数
-#=======================================
+#------------------------------------------------
+#  基本命令函数
+#------------------------------------------------
 
 # 查找一个命令是否存在[相同功能的有type, which(不建议使用,性能和返回值不太理想)]
 # 1> /dev/null 标准输出(通常把1去掉)
@@ -104,7 +104,7 @@ get_codename() {
 	echo "$codename"
 }
 
-install() {
+install_depend() {
     distributor=$( get_distributor )
     distributor="$(echo "$distributor" | tr '[:upper:]' '[:lower:]')"
 
@@ -120,4 +120,4 @@ install() {
 	esac
 }
 
-install
+install_depend
