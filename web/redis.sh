@@ -54,7 +54,8 @@ sed -i \
     -e 's|^EXEC=.*|EXEC=/opt/local/redis/bin/redis-server|g' \
     -e 's|^CLIEXEC=.*|CLIEXEC=/opt/local/redis/bin/redis-cli|g' \
     -e 's|^PIDFILE=.*|PIDFILE=/opt/local/redis/data/redis_${REDISPORT}.pid|g' \
-    -e 's|^CONF=.*|CONF=/opt/local/redis/conf/redis.conf|g'\
+    -e 's|^CONF=.*|CONF=/opt/local/redis/conf/redis.conf|g' \
+    '/$CLIEXEC -p $REDISPORT shutdown/a\if [ -e $PIDFILE ]\nthen\n\trm -f $PIDFILE\nfi'
     /etc/init.d/redis
 
 chmod a+x /etc/init.d/redis && \
