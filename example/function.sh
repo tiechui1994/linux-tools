@@ -120,4 +120,49 @@ install_depend() {
 	esac
 }
 
-install_depend
+echo_color() {
+    color=""
+    content="$*"
+
+    while [ $# -gt 0 ]
+    do
+        case "$1" in
+            -c)
+                color="${2:-"0"}"
+                shift $(( $# >= 2 ? 2 : $# ))
+                content="$*"
+                break
+                ;;
+            --color=*)
+                color="$(echo $1|cut -d '=' -f2)"
+                color="${color:-"0"}"
+                shift
+                content="$*"
+                break
+                ;;
+        esac
+        shift $(( $# > 0 ? 1 : 0 ))
+    done
+
+   # 字体色NN  0:默认, 31:红色, 32:绿色, 33:黄色, 34:蓝色, 35:紫色
+   case "${color}" in
+        "red"|"31")
+            echo -e "\033[1;31m$content\033[0m"
+            ;;
+        "green"|"32")
+            echo -e "\033[1;32m$content\033[0m"
+            ;;
+        "yellow"|"33")
+            echo -e "\033[1;33m$content\033[0m"
+            ;;
+        "blue"|"34")
+            echo -e "\033[1;34m$content\033[0m"
+            ;;
+        "purpose"|"35")
+            echo -e "\033[1;35m$content\033[0m"
+            ;;
+        *)
+            echo "${content}"
+            ;;
+   esac
+}
