@@ -18,7 +18,7 @@ if [ "$(whoami)" != "root" ]; then
 fi
 
 ################################# 源码下载  ####################################
-if [ command_exists curl ];then
+if command_exists curl; then
     curl -o dovecot-2.3.3.tar.gz ${url}
 fi
 

@@ -20,7 +20,7 @@ command_exists() {
 
 #######################  准备工作 #######################################
 # 安装下载工具
-if [ ! command_exists axel ]; then
+if ! command_exists axel; then
    apt-get update && sudo apt-get install axel -y
 fi
 
