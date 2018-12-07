@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 #====================================================
 # redis 安装脚本
@@ -13,7 +13,7 @@ BASE_URL="https://codeload.github.com/antirez/redis/tar.gz"
 WORK_DIR=$(pwd)/redis-${VERSION}
 INSTALL_DIR="/opt/local/redis"
 
-if [ "$(whoami)" != "root" ]; then
+if [[ "$(whoami)" != "root" ]]; then
     echo "Please use root privileges to execute"
 fi
 
@@ -28,7 +28,7 @@ tar -zvxf redis-${VERSION}.tar.gz && \
 cd ${WORK_DIR}
 
 # 目录检测
-if [ -e ${INSTALL_DIR} ];then
+if [[ -e ${INSTALL_DIR} ]];then
     rm -rf ${INSTALL_DIR}
 else
     mkdir -p ${INSTALL_DIR} && rm -rf ${INSTALL_DIR}
@@ -42,7 +42,7 @@ mkdir -p ${INSTALL_DIR}/conf && \
 cp redis.conf ${INSTALL_DIR}/conf && \
 cp sentinel.conf ${INSTALL_DIR}/conf
 
-if [ -e /etc/init.d/redis ];then
+if [[ -e /etc/init.d/redis ]];then
    rm -rf /etc/init.d/redis
 fi
 
@@ -72,7 +72,7 @@ sed -i \
 # 启动服务
 systemctl daemon-reload && \
 service redis start
-if [ -n $(netstat -an|grep '127.0.0.1:6379') ];then
+if [[ -n $(netstat -an|grep '127.0.0.1:6379') ]];then
     echo "Redis Installed Successful"
 fi
 

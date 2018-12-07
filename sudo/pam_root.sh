@@ -39,6 +39,7 @@ add_user_to_wheel() {
     check=$(cat /etc/pam.d/sudo | grep -E "^auth\s+sufficient\s+pam_wheel\.so\s+trust$")
     if [[ -z "${check}" ]]; then
         echo "auth  sufficient  pam_wheel.so    trust" >> /etc/pam.d/sudo
+        # sed -i '/condition/a\auth  sufficient  pam_wheel.so    trust' /etc/pam.d/sudo
     fi
 
     # 获取wheel组
