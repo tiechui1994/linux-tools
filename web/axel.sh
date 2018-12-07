@@ -14,7 +14,7 @@ command_exists() {
 	command -v "$@" > /dev/null 2>&1
 }
 
-if [ "$(whoami)" != "root" ]; then
+if [[ "$(whoami)" != "root" ]]; then
     echo "Please use root privileges to execute"
     exit
 fi

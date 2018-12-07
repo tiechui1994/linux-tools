@@ -11,7 +11,7 @@ WORKDIR=$(pwd)/mysql-${VERSION}
 INSTALL_DIR=/opt/local/mysql
 USER=$(whoami)
 
-if [ "${USER}" != "root" ]; then
+if [[ "${USER}" != "root" ]]; then
     echo "请使用root权限执行"
     exit
 fi
@@ -22,17 +22,17 @@ apt-get update && \
 apt-get install cmake build-essential libncurses5-dev bison -y
 
 # 安装下载工具
-if [ -z "$(whereis axel | grep -E -o '/usr/bin/axel')" ]; then
+if [[ -z "$(whereis axel | grep -E -o '/usr/bin/axel')" ]]; then
    apt-get update && sudo apt-get install axel -y
 fi
 
 
 # 下载源码包
-axel -n 100 https://cdn.mysql.com//Downloads/MySQL-5.7/mysql-${VERSION}.tar.gz \
+axel -n 100 https://cdn.mysql.com/Downloads/MySQL-5.7/mysql-${VERSION}.tar.gz \
 -o mysql-${VERSION}.tar.gz
 
 # 解压源文件
-if [ -e ${WORKDIR} ]; then
+if [[ -e ${WORKDIR} ]]; then
    rm -rf ${WORKDIR}
 fi
 
@@ -49,11 +49,11 @@ axel -n 100 https://nchc.dl.sourceforge.net/project/boost/boost/1.59.0/boost_1_5
 
 ##############################  编译安装  ####################################
 # 增加用户
-if [ -z "$(cat /etc/group | grep -E '^mysql:')" ]; then
+if [[ -z "$(cat /etc/group | grep -E '^mysql:')" ]]; then
    groupadd -r mysql
 fi
 
-if [ -z "$(cat /etc/password | grep -E '^mysql:')" ]; then
+if [[ -z "$(cat /etc/password | grep -E '^mysql:')" ]]; then
     useradd -r -g mysql -s /sbin/nologin mysql
 fi
 
@@ -91,7 +91,7 @@ make -j${cpu} && make install
 
 ############################  增加数据库配置  #####################################
 # 创建配置文件my.cnf(确保文件没有被创建)
-if [ -e ${INSTALL_DIR}/conf/my.cnf ];then
+if [[ -e ${INSTALL_DIR}/conf/my.cnf ]];then
    rm -rf ${INSTALL_DIR}/conf/my.cnf
 fi
 
@@ -160,7 +160,7 @@ fi
 
 # 启动服务
 service mysqld start
-if [ -z "$(service mysqld status |grep -o 'Active: active (running)')" ];then
+if [[ -z "$(service mysqld status |grep -o 'Active: active (running)')" ]];then
     echo "mysql启动失败,请检查原因"
     exit
 fi

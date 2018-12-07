@@ -18,7 +18,7 @@ command_exists() {
 # . 命令, 从指定的文件当中去取所有命令语句并在当前进程中执行(常用于进程间共享参数)
 # . filename 读取filename并且执行语句
 point_command() {
-    if [ -r /etc/os-release ]; then
+    if [[ -r /etc/os-release ]]; then
         name="$(. /ect/os-release && echo "$ID")"
         echo ${name}
     fi
@@ -42,7 +42,7 @@ output_text() {
 # 获取发行商
 get_distributor() {
 	distributor=""
-	if [ -r /etc/os-release ]; then
+	if [[ -r /etc/os-release ]]; then
 		distributor="$(. /etc/os-release && echo "${ID}")"
 	fi
 	echo "${distributor}"
@@ -58,7 +58,7 @@ get_codename() {
 				codename="$(lsb_release --codename | cut -f2)"
 			fi
 
-			if [ -z "${codename}" ] && [ -r /etc/lsb-release ]; then
+			if [[ -z "${codename}" ] && [ -r /etc/lsb-release ]]; then
 				codename="$(. /etc/lsb-release && echo "$DISTRIB_CODENAME")"
 			fi
 		;;
@@ -79,7 +79,7 @@ get_codename() {
 		;;
 
 		centos)
-			if [ -z "$codename" ] && [ -r /etc/os-release ]; then
+			if [[ -z "$codename" ] && [ -r /etc/os-release ]]; then
 				codename="$(. /etc/os-release && echo "$VERSION_ID")"
 			fi
 		;;
@@ -94,7 +94,7 @@ get_codename() {
 				codename="$(lsb_release --release | cut -f2)"
 			fi
 
-			if [ -z "$codename" ] && [ -r /etc/os-release ]; then
+			if [[ -z "$codename" ] && [ -r /etc/os-release ]]; then
 				codename="$(. /etc/os-release && echo "$VERSION_ID")"
 			fi
 		;;
@@ -124,7 +124,7 @@ echo_color() {
     color=""
     content="$*"
 
-    while [ $# -gt 0 ]
+    while [[ $# -gt 0 ]]
     do
         case "$1" in
             -c)

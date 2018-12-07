@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 #----------------------------------------------------
 # File: sudoer_root.sh
@@ -11,7 +11,7 @@ add=
 
 check_param() {
 # 执行权限检查
-if [ "$(whoami)" != "root" ];then
+if [[ "$(whoami)" != "root" ]];then
     echo
     echo "ERROR: Need siwtch to root! "
     echo
@@ -20,7 +20,7 @@ if [ "$(whoami)" != "root" ];then
 fi
 
 # 参数检查
-if [ -z $1 ];then
+if [[ -z $1 ]];then
     echo
     echo "Usage: Please input as follows:"
     echo "   sudo ./sudoer_root.sh USERNAME"
@@ -31,7 +31,7 @@ fi
 
 # 用户检测
 if grep -q -o -E "^($1)" /etc/passwd; then
-    if [ $1 != "root" ];then
+    if [[ $1 != "root" ]];then
         user=$1
         add="$1 ALL=(root)NOPASSWD:ALL";
     else
@@ -51,7 +51,7 @@ fi
 add_user_to_sudoers() {
     sudoers="/etc/sudoers"
 
-    if [ -e ${sudoers} ]; then
+    if [[ -e ${sudoers} ]]; then
          chmod u+w ${sudoers}
     else
         exit

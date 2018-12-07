@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 #----------------------------------------------------
 # File: adb_connect.sh
@@ -14,7 +14,7 @@ command_exists() {
 }
 
 get_id() {
-    if [ "$(whoami)" != "root" ]; then
+    if [[ "$(whoami)" != "root" ]]; then
         echo
         echo "ERROR: Please use root"
         echo
@@ -37,8 +37,8 @@ add_config_file() {
     get_id
 
     config=/etc/udev/rules.d/51-android.rules
-    if [ -e config ];then
-        config=/etc/udev/rules.d/70-android.rules
+    if [[ -e config ]];then
+       rm -rf ${config}
     fi
 
     echo "SUBSYSTEM=='usb',ATTRS{idVendor}=='"${idVendor}"',ATTRS{idProduct}=='"${idProduct}"',MODE='0666'" > \
@@ -47,7 +47,7 @@ add_config_file() {
     chmod a+rx ${config} && service udev restart && \
     adb kill-server && adb start-server
 
-    if [ $? -eq 0 ]; then
+    if [[ $? -eq 0 ]]; then
         echo
         echo "INFO: Success start adb"
         echo

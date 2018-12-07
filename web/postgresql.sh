@@ -9,7 +9,7 @@ WORKDIR=$(pwd)/pgsql-${VERSION}
 INSTALL_DIR=/opt/local/pgsql
 USER=$(whoami)
 
-if [ "${USER}" != "root" ]; then
+if [[ "${USER}" != "root" ]]; then
     echo "请使用root权限执行"
     exit
 fi
