@@ -1,85 +1,157 @@
 #!/bin/bash
 
-#====================================================
-# redis 安装脚本
-#====================================================
+#----------------------------------------------------
+# File: redis.sh
+# Contents: 安装redis服务
+# Date: 18-12-10
+#----------------------------------------------------
+
+version="4.0.0"
+workdir=$(pwd)/redis-${version}
+installdir="/opt/local/redis"
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
 }
 
-VERSION="4.0.0"
-BASE_URL="https://codeload.github.com/antirez/redis/tar.gz"
-WORK_DIR=$(pwd)/redis-${VERSION}
-INSTALL_DIR="/opt/local/redis"
+check_user() {
+    if [[ "$(whoami)" != "root" ]];then
+        echo
+        echo "ERROR: Please use root privileges to execute"
+        echo
+        exit
+    fi
+}
 
-if [[ "$(whoami)" != "root" ]]; then
-    echo "Please use root privileges to execute"
-fi
+download_source_code() {
+    if ! command_exists curl; then
+        apt-get update && \
+        apt-get install curl
+    fi
 
-# 下载源代码
-if ! command_exists curl; then
-    apt-get update && \
-    apt-get install curl
-fi
+    url="https://codeload.github.com/antirez/redis/tar.gz"
+    curl -o redis-${version}.tar.gz ${url}/${version} && \
+    tar -zvxf redis-${version}.tar.gz && \
+    cd ${workdir}
+}
 
-curl -o redis-${VERSION}.tar.gz ${BASE_URL}/${VERSION} && \
-tar -zvxf redis-${VERSION}.tar.gz && \
-cd ${WORK_DIR}
+build_sorce_code() {
+    # 目录检测
+    if [[ -e ${installdir} ]];then
+        rm -rf ${installdir}
+    else
+        mkdir -p ${installdir} && rm -rf ${installdir}
+    fi
 
-# 目录检测
-if [[ -e ${INSTALL_DIR} ]];then
-    rm -rf ${INSTALL_DIR}
-else
-    mkdir -p ${INSTALL_DIR} && rm -rf ${INSTALL_DIR}
-fi
+    make && make PREFIX=${installdir} install
+}
 
-# 编译
-make && make PREFIX=${INSTALL_DIR} install
+add_config_file() {
+    # 修正配置文件
+    mkdir -p ${installdir}/conf && \
+    cp redis.conf ${installdir}/conf && \
+    cp sentinel.conf ${installdir}/conf
 
-# 修正配置文件
-mkdir -p ${INSTALL_DIR}/conf && \
-cp redis.conf ${INSTALL_DIR}/conf && \
-cp sentinel.conf ${INSTALL_DIR}/conf
+    # 删除可能存在的配置文件
+    if [[ -e /etc/init.d/redis ]];then
+       rm -rf /etc/init.d/redis
+    fi
 
-if [[ -e /etc/init.d/redis ]];then
-   rm -rf /etc/init.d/redis
-fi
+    # 创建配置文件目录
+    mkdir ${installdir}/data && \
+    mkdir ${installdir}/logs
 
-mkdir ${INSTALL_DIR}/data && \
-mkdir ${INSTALL_DIR}/logs
-
-cp utils/redis_init_script /etc/init.d/redis && \
-sed -i \
-    -e 's|^EXEC=.*|EXEC=/opt/local/redis/bin/redis-server|g' \
-    -e 's|^CLIEXEC=.*|CLIEXEC=/opt/local/redis/bin/redis-cli|g' \
-    -e 's|^PIDFILE=.*|PIDFILE=/opt/local/redis/data/redis_${REDISPORT}.pid|g' \
-    -e 's|^CONF=.*|CONF=/opt/local/redis/conf/redis.conf|g' \
-    '/$CLIEXEC -p $REDISPORT shutdown/a\if [ -e $PIDFILE ]\nthen\n\trm -f $PIDFILE\nfi'
-    /etc/init.d/redis
-
-chmod a+x /etc/init.d/redis && \
-update-rc.d redis defaults && \
-update-rc.d redis disable $(runlevel | cut -d ' ' -f2)
-
-sed -i \
+    # 修改配置文件
+    sed -i \
     -e 's|^daemonize.*|daemonize yes|g' \
     -e 's|^supervised.*|supervised auto|g' \
     -e 's|^pidfile.*|pidfile /opt/local/redis/data/redis_6379.pid|g' \
     -e 's|^logfile.*|logfile /opt/local/redis/logs/redis.log|g' \
-    ${INSTALL_DIR}/conf/redis.conf
+    ${installdir}/conf/redis.conf
 
-# 启动服务
-systemctl daemon-reload && \
-service redis start
-if [[ -n $(netstat -an|grep '127.0.0.1:6379') ]];then
-    echo "Redis Installed Successful"
-fi
+    # 添加服务文件
+    cat >> /etc/init.d/redis <<-'EOF'
+#!/bin/bash
+#
+# Simple Redis init.d script conceived to work on Linux systems
+# as it does use of the /proc filesystem.
 
-# 链接
-ln -sf ${INSTALL_DIR}/bin/redis-cli /usr/local/bin/redis-cli && \
-ln -sf ${INSTALL_DIR}/bin/redis-server /usr/local/bin/redis-server
+REDISPORT=6379
+EXEC=/usr/local/bin/redis-server
+CLIEXEC=/usr/local/bin/redis-cli
 
-# 清理文件
-cd ../ &&
-rm -rf redis-${VERSION}*
+PIDFILE=/opt/local/redis/data/redis_${REDISPORT}.pid
+CONF=/opt/local/redis/conf/redis.conf
+
+case "$1" in
+    start)
+        if [[ -f ${PIDFILE} ]]
+        then
+                echo "${PIDFILE} exists, process is already running or crashed"
+        else
+                echo "Starting Redis server..."
+                $EXEC ${CONF}
+        fi
+        ;;
+    stop)
+        if [[ ! -f ${PIDFILE} ]]
+        then
+                echo "${PIDFILE} does not exist, process is not running"
+        else
+                PID=$(cat ${PIDFILE})
+                echo "Stopping ..."
+
+                ${CLIEXEC} -p ${REDISPORT} shutdown
+                if [[ -e ${PIDFILE} ]];then
+                    rm -rf ${PIDFILE}
+                fi
+
+                while [[ -x /proc/${PID} ]]
+                do
+                    echo "Waiting for Redis to shutdown ..."
+                    sleep 1
+                done
+                echo "Redis stopped"
+        fi
+        ;;
+    *)
+        echo "Please use start or stop as first argument"
+        ;;
+esac
+EOF
+
+    # 权限
+    chmod a+x /etc/init.d/redis && \
+    update-rc.d redis defaults && \
+    update-rc.d redis disable $(runlevel | cut -d ' ' -f2)
+
+     # 链接
+    ln -sf ${installdir}/bin/redis-cli /usr/local/bin/redis-cli && \
+    ln -sf ${installdir}/bin/redis-server /usr/local/bin/redis-server
+}
+
+start_redis_service() {
+    systemctl daemon-reload && \
+    service redis start
+    if [[ -n $(netstat -an|grep '127.0.0.1:6379') ]];then
+        echo
+        echo "INFO: Redis Installed Successful"
+        echo
+    fi
+}
+
+clear_file() {
+    cd ../ &&
+    rm -rf redis-${version}*
+}
+
+do_install() {
+    check_user
+    download_source_code
+    build_sorce_code
+    add_config_file
+    start_redis_service
+    clear_file
+}
+
+do_install
