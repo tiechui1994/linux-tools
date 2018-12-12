@@ -70,7 +70,7 @@ add_config_file() {
     ${installdir}/conf/redis.conf
 
     # 添加服务文件
-    cat >> /etc/init.d/redis <<-'EOF'
+    cat > /etc/init.d/redis <<-'EOF'
 #!/bin/bash
 #
 # Simple Redis init.d script conceived to work on Linux systems
