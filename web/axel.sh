@@ -6,50 +6,65 @@
 # Ubuntu16.04 下 axel 安装
 #=============================================================
 
-VERSION="2.16.1"
-WORK_DIR=$(pwd)/axel-${VERSION}
-BASE="https://github.com/axel-download-accelerator/axel/releases/download"
+version="2.16.1"
+workdir=$(pwd)/axel-${version}
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
 }
 
-if [[ "$(whoami)" != "root" ]]; then
-    echo "Please use root privileges to execute"
-    exit
-fi
+check_param() {
+    if [[ "$(whoami)" != "root" ]]; then
+        echo "Please use root privileges to execute"
+        exit
+    fi
 
-if command_exists axel; then
-    echo
-    echo "Warning: the "axel" command appears to already exist on this system."
-    exit
-fi
+    if command_exists axel; then
+        echo
+        echo "Warning: the "axel" command appears to already exist on this system."
+        exit
+    fi
+}
 
-# 下载源代码
-if ! command_exists curl; then
+download_source_code() {
+    # 下载源代码
+    if ! command_exists curl; then
+        apt-get update && apt-get install curl
+    fi
+
+    prefix="https://github.com/axel-download-accelerator/axel/releases/download"
+    curl -o axel-${version}.tar.gz ${prefix}/v${version}/axel-${version}.tar.gz && \
+    tar -zvxf axel-${version}.tar.gz
+}
+
+do_install() {
+    # 安装依赖文件
     apt-get update && \
-    apt-get install curl
-fi
+    apt-get install autoconf pkg-config gettext autopoint libssl-dev && \
+    autoreconf -fiv
 
-curl -o axel-${VERSION}.tar.gz ${BASE}/v${VERSION}/axel-${VERSION}.tar.gz && \
-tar -zvxf axel-${VERSION}.tar.gz && \
-cd ${WORK_DIR}
+    # 编译安装
+     cd ${workdir} && \
+    ./configure && make && make install
 
-# 安装依赖文件
-apt-get update && \
-apt-get install autoconf pkg-config gettext autopoint libssl-dev && \
-autoreconf -fiv
+    # 检查
+    if command_exists axel; then
+        echo "The axel install successful!!!"
+    else
+        echo "The axel install failed"
+    fi
+}
 
-# 编译安装
-./configure && make && make install
+clear() {
+    # 清理工作
+    cd ../ && rm -rf axel-${version}*
+}
 
-# 检查
-if command_exists axel; then
-    echo "The axel install successful!!!"
-else
-    echo "The axel install failed"
-fi
+install() {
+    check_param
+    download_source_code
+    do_install
+    clear
+}
 
-# 清理工作
-cd ../ && \
-rm -rf axel-${VERSION}*
+install
