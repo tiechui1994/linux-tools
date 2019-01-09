@@ -336,3 +336,12 @@ clean_file() {
     cd ../ && rm -rf nginx-*
 }
 
+do_install(){
+    check_user
+    download_src_and_install_dep
+    build_sorce_code
+    add_config_file
+    clean_file
+}
+
+do_install
