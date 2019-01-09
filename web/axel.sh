@@ -15,13 +15,16 @@ command_exists() {
 
 check_param() {
     if [[ "$(whoami)" != "root" ]]; then
+        echo
         echo "Please use root privileges to execute"
+        echo
         exit
     fi
 
     if command_exists axel; then
         echo
         echo "Warning: the "axel" command appears to already exist on this system."
+        echo
         exit
     fi
 }
@@ -60,11 +63,11 @@ clear() {
     cd ../ && rm -rf axel-${version}*
 }
 
-install() {
+do_install() {
     check_param
     download_source_code
     do_install
     clear
 }
 
-install
+do_install
