@@ -58,3 +58,13 @@
 #    xfrm      管理IPSec策略
 #
 #    tcp_metrics  TCP链接策略
+
+
+
+# 获取公网IP方法
+
+curl http://members.3322.org/dyndns/getip
+
+#或者
+
+wget http://members.3322.org/dyndns/getip
