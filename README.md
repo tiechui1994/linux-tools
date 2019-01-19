@@ -22,6 +22,7 @@
 - axel.sh : ubuntu 本地源码安装 axel
 - redis.sh : ubuntu 本地源码安装 redis
 - postgresql : ubuntu 本地源码安装 postgresql
+- mongodb : 本地安装 mongodb
 
 
 ### commands
