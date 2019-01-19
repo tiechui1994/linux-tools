@@ -53,7 +53,7 @@ add_service() {
     mkdir -p ${installdir}/logs
 
     # 添加conf配置
-    cat >> ${installdir}/conf/mongodb.conf << EOF
+    cat > ${installdir}/conf/mongodb.conf << EOF
 #pid file
 pidfilepath=${installdir}/logs/mongodb.pid
 
@@ -64,26 +64,26 @@ logpath=${installdir}/logs/mongodb.log
 logappend=true
 
 #run as deamon
-fork = true
+fork=true
 
 #port
-port = 27017
+port=27017
 
 #data dir
 dbpath=${installdir}/data
 
 #record cpu use
-cpu = true
+cpu=true
 
 #是否以安全认证方式运行，默认为非安全模式，不进行认证
-noauth = true
+noauth=true
 #auth = true
 
 #详细记录输出
-verbose = true
+verbose=true
 
 #Enable db quota management
-quota = true
+quota=true
 
 # Set oplogging level where n is
 #   0=off (default)
@@ -94,25 +94,25 @@ quota = true
 #diaglog=0
 
 #Diagnostic/debugging option 动态调试项
-#nocursors = true
+#nocursors=true
 #
 #Ignore query hints 忽略查询提示
-#nohints = true
+#nohints=true
 #
 #禁用http界面，默认为localhost:28017
-#nohttpinterface = true
+#nohttpinterface=true
 #
 #关闭服务器端脚本，这将极大的限制功能
-#noscripting = true
+#noscripting=true
 #
 #关闭扫描表，任何查询将会是扫描失败
-#notablescan = true
+#notablescan=true
 #
 #关闭数据文件预分配
-#noprealloc = true
+#noprealloc=true
 #
 #为新数据库指定.ns文件的大小,单位:MB
-#nssize =
+#nssize=
 #
 #Replication Options 复制选项
 #replSet=setname
@@ -126,25 +126,161 @@ quota = true
 EOF
 
     # 添加service
-     cat >> /etc/init/mongod << EOF
+     cat > /etc/init.d/mongod <<- 'EOF'
 #!/bin/sh
 
-MONGOND=${installdir}/bin/mongod
-CONF=${installdir}/conf/mongodb.conf
-PID=${installdir}/logs/mongodb.pid
+### BEGIN INIT INFO
+# Provides:   mongod
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: starts the mongod server
+# Description:       starts mongod using start-stop-daemon
+### END INIT INFO
 
-# Try to extract nginx pidfile
-PID=$(cat ${CONF} | grep -Ev '^\s*#' | awk 'BEGIN { RS="[;{}]" } { if ($1 == "pidfilepath") print $2 }' | head -n1)
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/opt/local/mongodb/bin/mongod
+CONF=/opt/local/mongodb/conf/mongodb.conf
+PID=/opt/local/mongodb/logs/mongodb.pid
+NAME=mongod
+DESC=mongod
+
+test -x ${DAEMON} || exit 0
+
+. /lib/init/vars.sh
+. /lib/lsb/init-functions
+
+# Try to extract mongodb pidfilepath
+PID=$(cat ${CONF} | grep -Ev '^\s*#' | awk '{ split($0, arr, "="); if ( arr[1]=="pidfilepath" ) print arr[2] }' | head -n1)
 if [ -z "${PID}" ]; then
-    PID=${installdir}/logs/mongodb.pid
+    PID=/run/mongodb.pid
 fi
+
+#
+# Function that starts the daemon/service
+#
+do_start()
+{
+    # Return
+    #   0 if daemon has been started
+    #   1 if daemon was already running
+    #   2 if daemon could not be started
+    DAEMON_OPTS="-f ${CONF}"
+    start-stop-daemon --start --quiet --pidfile ${PID} --exec ${DAEMON} --test > /dev/null \
+        || return 1
+    start-stop-daemon --start --quiet --pidfile ${PID} --exec ${DAEMON} -- \
+        ${DAEMON_OPTS} 2>/dev/null \
+        || return 2
+}
+
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+    # Return
+    #   0 if daemon has been stopped
+    #   1 if daemon was already stopped
+    #   2 if daemon could not be stopped
+    #   other if a failure occurred
+    start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile ${PID} --name ${NAME}
+    RETVAL="$?"
+
+    sleep 1
+
+    if [ "${RETVAL}" = "0" ] || [ "${RETVAL}" = "1" ]; then
+        if [ -e "${PID}" ]; then
+            rm -f ${PID}
+        fi
+    fi
+
+    return "${RETVAL}"
+}
+
+#
+# Function that sends a SIGHUP to the daemon/service
+#
+do_reload() {
+    start-stop-daemon --stop --signal HUP --quiet --pidfile ${PID} --name ${NAME}
+    return 0
+}
+
+case "$1" in
+    start)
+        [ "${VERBOSE}" != no ] && log_daemon_msg "Starting ${DESC}" "${NAME}"
+        do_start
+        case "$?" in
+            0|1) [ "${VERBOSE}" != no ] && log_end_msg 0 ;;
+            2) [ "${VERBOSE}" != no ] && log_end_msg 1 ;;
+        esac
+        ;;
+    stop)
+        [ "${VERBOSE}" != no ] && log_daemon_msg "Stopping ${DESC}" "${NAME}"
+        do_stop
+        case "$?" in
+            0|1) [ "${VERBOSE}" != no ] && log_end_msg 0 ;;
+            2) [ "${VERBOSE}" != no ] && log_end_msg 1 ;;
+        esac
+        ;;
+    restart)
+        log_daemon_msg "Restarting ${DESC}" "${NAME}"
+
+        do_stop
+        case "$?" in
+            0|1)
+                do_start
+                case "$?" in
+                    0) log_end_msg 0 ;;
+                    1) log_end_msg 1 ;; # Old process is still running
+                    *) log_end_msg 1 ;; # Failed to start
+                esac
+                ;;
+            *)
+                # Failed to stop
+                log_end_msg 1
+                ;;
+        esac
+        ;;
+    reload)
+        log_daemon_msg "Reloading ${DESC} configuration" "${NAME}"
+        do_reload
+        log_end_msg $?
+        ;;
+    status)
+        status_of_proc -p ${PID} "${DAEMON}" "${NAME}" && exit 0 || exit $?
+        ;;
+    *)
+        echo "Usage: ${NAME} {start|stop|restart|reload|status}" >&2
+        exit 3
+        ;;
+esac
+
+:
 EOF
+
+    # 权限
+    chmod a+x /etc/init.d/mongod && \
+    update-rc.d mongod defaults && \
+    update-rc.d mongod disable $(runlevel | cut -d ' ' -f2)
+
+    # 启动
+    service mongod start
+
+    # 测试
+    if [[ $(pgrep mongod) ]]; then
+        echo "========================================================"
+        echo "nginx install success!!!"
+    fi
+}
+
+clean_file() {
+    rm -rf ${workdir}
 }
 
 do_install() {
     check_param
-#    download_bin_package
+    download_bin_package
     add_service
+    clean_file
 }
 
 do_install
