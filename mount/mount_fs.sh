@@ -120,10 +120,11 @@ set_mount_param(){
 }
 
 do_install(){
-check_user
-set_mount_param $*
+    check_user
+    set_mount_param $*
 
-cat >> /etc/fstab << EOF
+    # 添加挂在记录
+    cat >> /etc/fstab << EOF
 # ${point} was on ${dev} during installation
 UUID=${uuid} ${point}            ${type}    ${options}        ${dump}       ${pass}
 EOF
