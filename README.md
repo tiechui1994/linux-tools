@@ -1,35 +1,49 @@
-### rsync
+# Linux 安装软件的常用脚本
 
-- backup.sh :  实现文件备份到u盘
-- sudo.sh :  centos 中为当前用户增加免密码root权限
-- usb.sh :  实现 usb 连接
+## android
 
+- adb_connect.sh : 解决adb连接手机出现的没有权限问题
 
-### doc
+## commands
+
+- awk.sh : awk命令解析
+- function_param.sh : 传送参数的脚本处理案例
+- if.sh : 常见的if条件判断语句
+- ip.sh : ip命令介绍
+- process.sh : 进程管理命令
+- sed.sh : sed命令解析
+- service.sh : service命令解析
+- stdout.sh : printf vs echo
+- systemd.sh : systemd命令解析
+- vars.sh : 变量替换操作
+
+## deb
+
+- make_deb.sh : 使用dpkg-deb制作deb的流程
+
+## doc
 
 - Linux 是关于 Linux 的命令方面的常用介绍(以 CentOS 6.5 为基础的操作文档)
 
+## example
 
-### sudo
+- function.sh : 常用的函数案例
+- params.sh : 参数处理
 
-- sudo.sh : ubuntu 中为当前用户增加免密码root权限
+## mount
 
+- mount_fs.sh : 文件系统期自动挂在
 
-### web
+## sudo
 
-- nginx.sh : ubuntu 本地源码安装 nginx 服务器
-- mysql.sh : ubuntu 本地源码安装 mysql, 针对5.7系列
+- pam_root.sh : 使用pam的方式解决sudo免密码使用root权限
+- sudoer_root.sh : 在sudoer文件当中添加记录解决sudo免密码使用root权限
+
+## web
+
 - axel.sh : ubuntu 本地源码安装 axel
-- redis.sh : ubuntu 本地源码安装 redis
-- postgresql : ubuntu 本地源码安装 postgresql
 - mongodb : 本地安装 mongodb
-
-
-### commands
-
-- if.sh : 常见的if条件判断语句
-- vars.sh : 变量替换操作
-- stdout.sh : printf vs echo
-- function.sh : 函数案例
-- process.sh : 进程管理命令
-- ip.sh : ip命令介绍
+- mysql.sh : ubuntu 本地源码安装 mysql, 针对5.7系列
+- nginx.sh : ubuntu 本地源码安装 nginx 服务器
+- postgresql : ubuntu 本地源码安装 postgresql
+- redis.sh : ubuntu 本地源码安装 redis
