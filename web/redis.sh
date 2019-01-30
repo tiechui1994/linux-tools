@@ -67,6 +67,7 @@ add_config_file() {
     -e 's|^supervised.*|supervised auto|g' \
     -e 's|^pidfile.*|pidfile /opt/local/redis/data/redis_6379.pid|g' \
     -e 's|^logfile.*|logfile /opt/local/redis/logs/redis.log|g' \
+    -e 's|^dir.*|dir /opt/local/redis/data/|g' \
     ${installdir}/conf/redis.conf
 
     # 添加服务文件
