@@ -47,11 +47,11 @@ check_user(){
 set_mount_param(){
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --dev)
+            --dev | -d)
                 dev="$2"
                 shift
                 ;;
-            --point)
+            --point | -p)
                 point="$2"
                 shift
                 ;;
@@ -98,8 +98,12 @@ set_mount_param(){
         exit
     fi
 
-    uuid=${var["UUID"]}
-    type=${var["TYPE"]}
+    uuid="${var["UUID"]}"
+    type="${var["TYPE"]}"
+
+    # 去掉`"`字符串
+    uuid=${uuid//\"/}
+    type=${type//\"/}
 
     if [[ $(echo "${point}"| grep -E '^[^/]') ]]; then
         point="$(pwd)/${point}"
@@ -124,11 +128,8 @@ do_install(){
     set_mount_param $*
 
     # 添加挂在记录
-    cat >> /etc/fstab << EOF
-# ${point} was on ${dev} during installation
-UUID=${uuid} ${point}            ${type}    ${options}        ${dump}       ${pass}
-EOF
-
+    echo "# ${point} was on ${dev} during installation" >> /etc/fstab
+    echo "UUID=${uuid}    ${point}  ${type} ${options}  ${dump} ${pass}" >> /etc/fstab
 }
 
 do_install $*
