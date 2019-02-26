@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#=============================================================
-# axel是一款多线程文件下载器, 可以快速下载文件
-#
-# Ubuntu16.04 下 axel 安装
-#=============================================================
+#----------------------------------------------------
+# File: axel.sh
+# Contents: axel是一款多线程文件下载器, 可以快速下载文件.
+# Date: 19-1-18
+#----------------------------------------------------
 
 version="2.16.1"
 workdir=$(pwd)/axel-${version}
@@ -16,14 +16,14 @@ command_exists() {
 check_param() {
     if [[ "$(whoami)" != "root" ]]; then
         echo
-        echo "Please use root privileges to execute"
+        echo "ERROR: Please use root privileges to execute"
         echo
         exit
     fi
 
     if command_exists axel; then
         echo
-        echo "Warning: the "axel" command appears to already exist on this system."
+        echo "WARN: The "axel" command appears to already exist on this system"
         echo
         exit
     fi
@@ -52,9 +52,13 @@ do_install() {
 
     # 检查
     if command_exists axel; then
-        echo "The axel install successful!!!"
+        echo
+        echo "INFO: The axel install successfully"
+        echo
     else
-        echo "The axel install failed"
+        echo
+        echo "ERROR: The axel install failed"
+        echo
     fi
 }
 

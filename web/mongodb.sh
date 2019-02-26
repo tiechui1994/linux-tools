@@ -17,7 +17,7 @@ command_exists() {
 check_param() {
     if [[ "$(whoami)" != "root" ]]; then
         echo
-        echo "Please use root privileges to execute"
+        echo "ERROR: Please use root privileges to execute"
         echo
         exit
     fi
@@ -267,8 +267,9 @@ EOF
 
     # 测试
     if [[ $(pgrep mongod) ]]; then
-        echo "========================================================"
-        echo "nginx install success!!!"
+        echo
+        echo "INFO: MongoDB install successfully"
+        echo
     fi
 }
 

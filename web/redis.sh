@@ -73,9 +73,16 @@ add_config_file() {
     # 添加服务文件
     cat > /etc/init.d/redis <<-'EOF'
 #!/bin/bash
-#
-# Simple Redis init.d script conceived to work on Linux systems
-# as it does use of the /proc filesystem.
+
+### BEGIN INIT INFO
+# Provides:          redis
+# Required-Start:    $local_fs
+# Required-Stop:     $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: redis service
+# Description:       redis service daemon
+### END INIT INFO
 
 REDISPORT=6379
 EXEC=/usr/local/bin/redis-server

@@ -18,7 +18,7 @@ command_exists() {
 check_param() {
     if [[ "$(whoami)" != "root" ]]; then
         echo
-        echo "Please use root privileges to execute"
+        echo "ERROR: Please use root privileges to execute"
         echo
         exit
     fi
@@ -53,7 +53,6 @@ before_install(){
     apt-get update && \
     apt-get install cmake build-essential libncurses5-dev bison -y
 
-    ##############################  编译安装  ####################################
     # 增加用户
     if [[ -z "$(cat /etc/group | grep -E '^mysql:')" ]]; then
        groupadd -r mysql
@@ -161,29 +160,34 @@ init_mysql_database() {
 
     # 数据库初始化检查
     if cat ${installdir}/logs/mysql.err | grep -E -i '\[error\]'; then
-        echo "mysql初始化出现问题, 请查看详情文件${installdir}/logs/mysql.err自己解决"
+        echo
+        echo "ERROR: Mysql初始化出现问题, 请查看详情文件${installdir}/logs/mysql.err自己解决"
+        echo
         exit
     fi
 
     # 启动服务
     service mysqld start
-    if [[ -z "$(service mysqld status |grep -o 'Active: active (running)')" ]];then
-        echo "mysql启动失败,请检查原因"
+    if [[ -z "$(service mysqld status |grep -o 'Active: active (running)')" ]]; then
+        echo
+        echo "ERROR: Mysql启动失败,请检查原因"
+        echo
         exit
     fi
 
     # 获取数据库临时密码, 并进行展示
     password="$(cat ${installdir}/logs/mysql.err | grep 'temporary password' | cut -d ' ' -f11)"
 
-    echo "======================================="
+    echo
     echo "当前密码是: "${password}
     echo "请使用下面的命令更新数据库密码:"
     echo "SET PASSWORD = PASSWORD('your new password');"
     echo "ALTER user 'root'@'localhost' PASSWORD EXPIRE NEVER;"
     echo "FLUSH PRIVILEGES;"
-    echo "======================================="
+    echo
 
-    echo "mysql install success!!"
+    echo "INFO: Mysql install successfully"
+    echo
 }
 
 clean_file(){
