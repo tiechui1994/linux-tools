@@ -6,17 +6,18 @@
 
 ## commands
 
+- array.sh : 数组操作
 - awk.sh : awk命令解析
-- param.sh : 传送参数的脚本处理案例
 - if.sh : 常见的if条件判断语句
 - ip.sh : ip命令介绍
+- mark.sh : 大括号的应用
+- param.sh : 传送参数的脚本处理案例
 - process.sh : 进程管理命令
 - sed.sh : sed命令解析
 - service.sh : service命令解析
 - stdout.sh : printf vs echo
 - string.sh : string的处理方法
 - systemd.sh : systemd命令解析
-- vars.sh : 变量替换操作
 
 ## deb
 
