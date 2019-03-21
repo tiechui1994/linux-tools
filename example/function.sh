@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -xo pipefail
+
 #------------------------------------------------
 #  基本命令函数
 #------------------------------------------------
@@ -42,9 +44,27 @@ output_text() {
 # 获取发行商
 get_distributor() {
 	distributor=""
-	if [[ -r /etc/os-release ]]; then
+
+	if command_exists lsb_release ; then
+        distributor=$(lsb_release -i | cut -d ':' -f2)
+	fi
+
+	if [[ -z "${distributor}" && -r /etc/issue ]]; then
+        distributor=$(head -1 /etc/issue|cut -d ' ' -f1)
+	fi
+
+    if [[ -z "${distributor}" && -r /etc/issue.net ]]; then
+        distributor=$(head -1 /etc/issue.net|cut -d ' ' -f1)
+	fi
+
+    if [[ -z "${distributor}" && -r /etc/system-release ]]; then
+		distributor=$(head -1 /etc/issue.net|cut -d ' ' -f1)
+	fi
+
+	if [[ -z "${distributor}" && -r /etc/os-release ]]; then
 		distributor="$(. /etc/os-release && echo "${ID}")"
 	fi
+
 	echo "${distributor}"
 }
 
@@ -58,7 +78,7 @@ get_codename() {
 				codename="$(lsb_release --codename | cut -f2)"
 			fi
 
-			if [[ -z "${codename}" ] && [ -r /etc/lsb-release ]]; then
+			if [[ -z "${codename}" && -r /etc/lsb-release ]]; then
 				codename="$(. /etc/lsb-release && echo "$DISTRIB_CODENAME")"
 			fi
 		;;
@@ -78,23 +98,30 @@ get_codename() {
 			esac
 		;;
 
-		centos)
-			if [[ -z "$codename" ] && [ -r /etc/os-release ]]; then
-				codename="$(. /etc/os-release && echo "$VERSION_ID")"
+		centos|fedora)
+		    if [[ -z "$codename" && -r /etc/centos-release ]]; then
+		        codename=$(head -1 /etc/centos-release | cut -d ' ' -f3)
+		    fi
+
+            if [[ -z "$codename" && -r /etc/redhat-release ]]; then
+		        codename=$(head -1 /etc/redhat-release | cut -d ' ' -f3)
+		    fi
+
+			if [[ -z "$codename"  &&  -r /etc/system-release ]]; then
+				codename=$(head -1 /etc/system-release | cut -d ' ' -f3)
 			fi
 		;;
-
-		rhel|ol|sles)
-			ee_notice "$distributor"
-			exit 1
-			;;
 
 		*)
 			if command_exists lsb_release; then
 				codename="$(lsb_release --release | cut -f2)"
 			fi
 
-			if [[ -z "$codename" ] && [ -r /etc/os-release ]]; then
+            if [[ -z "$codename" && -r /etc/issue ]]; then
+		        codename=$(head -1 /etc/issue | cut -d ' ' -f3)
+		    fi
+
+			if [[ -z "$codename" && -r /etc/os-release ]]; then
 				codename="$(. /etc/os-release && echo "$VERSION_ID")"
 			fi
 		;;
