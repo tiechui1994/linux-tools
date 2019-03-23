@@ -28,32 +28,3 @@ arg_do_while() {
         shift $(( $# > 0 ? 1 : 0 ))
     done
 }
-
-#---------------------------------------------------------------------------------------------------
-# 使用getopts, 但是只支持短选项.
-# -arg  // arg的值为空
-# -arg value, -argvalue // arg的值是value
-#
-# getopts "arg1:arg2"
-#---------------------------------------------------------------------------------------------------
-arg_do_opts() {
-    while getopts "a:bc" arg ; do #选项后面的冒号表示该选项需要参数
-        case ${arg} in
-             a)
-                echo "a: $OPTARG" # 参数存在$OPTARG中
-                ;;
-             b)
-                echo "b: $OPTARG"
-                ;;
-             c)
-                echo "c: $OPTARG"
-                ;;
-             ?)  #当有不认识的选项的时候arg为?
-                echo "unkonw argument"
-                exit 1
-                ;;
-        esac
-    done
-}
-
-arg_do_opts  -b -c -a hello
