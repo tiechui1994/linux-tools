@@ -209,10 +209,10 @@ EOF
 
 ### BEGIN INIT INFO
 # Provides:   nginx
-# Required-Start:    $local_fs $remote_fs $network $syslog ${NAME}d
-# Required-Stop:     $local_fs $remote_fs $network $syslog ${NAME}d
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
+# Required-Start:    $local_fs $remote_fs $syslog $network ${NAME}d
+# Required-Stop:     $local_fs $remote_fs $syslog $network ${NAME}d
+# Default-Start:     2 3 4
+# Default-Stop:      0 1 5 6
 # Short-Description: starts the nginx web server
 # Description:       starts nginx using start-stop-daemon
 ### END INIT INFO

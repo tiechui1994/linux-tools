@@ -2,12 +2,12 @@
 
 ### BEGIN INIT INFO
 # Provides:          mongodb
-# Required-Start:    $network $local_fs $remote_fs
-# Required-Stop:     $network $local_fs $remote_fs
+# Required-Start:    $local_fs $remote_fs $syslog $network ${NAME}d
+# Required-Stop:     $local_fs $remote_fs $syslog $network ${NAME}d
 # Should-Start:      $named
 # Should-Stop:
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
+# Default-Start:     2 3 4
+# Default-Stop:      0 1 5 6
 # Short-Description: An object/document-oriented database
 # Description:       MongoDB scripts
 ### END INIT INFO
