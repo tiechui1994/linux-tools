@@ -8,7 +8,7 @@
 
 
 version=1.14.0
-workdir=$(pwd)/nginx-${version}
+workdir=$(pwd)
 installdir=/opt/local/nginx
 
 command_exists() {
@@ -24,7 +24,7 @@ check_user() {
     fi
 }
 
-download_src_and_install_dep() {
+download_source() {
     # 安装下载工具
     if ! command_exists curl; then
         apt-get update && apt-get install axel -y
@@ -33,7 +33,7 @@ download_src_and_install_dep() {
     # 安装依赖的包
     apt-get update && \
     apt-get install zlib1g-dev openssl libssl-dev libpcre3 libpcre3-dev libxml2 libxml2-dev \
-    libxslt-dev perl libperl-dev -y
+    libxslt-dev perl libperl-dev libgd3 -y
 
     # 获取源代码
     echo http://nginx.org/download/nginx-${version}.tar.gz
@@ -43,6 +43,39 @@ download_src_and_install_dep() {
     tar -zvxf nginx-${version}.tar.gz && cd nginx-${version}
 }
 
+download_openssl() {
+    prefix="https://ftp.openssl.org/source/old"
+    openssl="$(openssl version |cut -d " " -f2)"
+    url=$(printf "%s/%s/openssl-%s.tar.gz" ${prefix} ${openssl:0:${#openssl}-1} ${openssl})
+
+    axel -n 10 -o openssl.tar.gz ${url}
+
+    # 解压文件
+    rm -rf openssl && mkdir openssl
+    tar -zvxf openssl.tar.gz -C ./openssl --strip-components 1
+}
+
+download_pcre() {
+    prefix="https://jaist.dl.sourceforge.net/project/pcre/pcre"
+    pcre="$(pcre-config --version)"
+    url=$(printf "%s/%s/pcre-%s.tar.gz" ${prefix} ${pcre} ${pcre})
+
+    axel -n 10 -o pcre.tar.gz ${url}
+
+    # 解压文件
+    rm -rf pcre && mkdir pcre
+    tar -zvxf pcre.tar.gz -C ./pcre --strip-components 1
+}
+
+download_zlib() {
+    url="http://www.zlib.net/fossils/zlib-1.2.11.tar.gz"
+
+    axel -n 10 -o zlib.tar.gz ${url}
+
+    # 解压文件
+    rm -rf zlib && mkdir zlib
+    tar -zvxf zlib.tar.gz -C ./zlib --strip-components 1
+}
 
 build_sorce_code() {
     # 创建目录
@@ -63,8 +96,42 @@ build_sorce_code() {
         useradd -r www -g www
     fi
 
+    ##
+    # nginx配置模块解析:
+    #   ngx_http_ssl_module  为HTTPS提供必要的支持, 需要OpenSSL库
+    #   ngx_http_v2_module   提供了HTTP2协议的支持, 并取代ngx_http_spdy_module模块
+    #   ngx_http_realip_module 用于改变客户端地址和可选端口在发送的头字段
+    #   ngx_http_addition_module  在响应之前和之后添加文件内容
+    #   ngx_http_xslt_module  过滤转换XML请求
+    #   ngx_http_image_filter_module 实现图片裁剪、缩放、旋转功能，支持jpg、gif、png格式, 需要gd库
+    #   ngx_http_geoip_module  可以用于IP访问限制
+    #   ngx_http_sub_module  允许用一些其他文本替换nginx响应中的一些文本
+    #   ngx_http_dav_module  增加PUT,DELETE,MKCOL(创建集合),COPY和MOVE方法
+    #   ngx_http_flv_module  提供寻求内存使用基于时间的偏移量文件(流媒体点播)
+    #   ngx_http_mp4_module
+    #   ngx_http_gunzip_module
+    #   ngx_http_gzip_static_module  在线实时压缩输出数据流
+    #   ngx_http_auth_request_module 第三方auth支持
+    #   ngx_http_random_index_module 从目录中随机挑选一个目录索引
+    #   ngx_http_secure_link_module  计算和检查要求所需的安全链接网址
+    #   ngx_http_degradation_module 许在内存不足的情况下返回204或444码
+    #   ngx_http_slice_module  将一个请求分解成多个子请求, 每个子请求返回响应内容的一个片段，让大文件的缓存更有效
+    #   ngx_http_stub_status_module 获取nginx自上次启动以来的工作状态
+    #   ngx_http_perl_module
+    #
+    #   ngx_mail_ssl_module
+    #
+    #   ngx_stream_ssl_module
+    #   ngx_stream_realip_module 真实ip
+    #   ngx_stream_geoip_module  ip限制
+    #   ngx_stream_ssl_preread_module
+    #
+    #   ngx_google_perftools_module
+    #   ngx_cpp_test_module
+    #
+    ##
     # 编译
-    ${workdir}/configure \
+    ${workdir}/nginx-${version}/configure \
     --user=www  \
     --group=www \
     --prefix=${installdir} \
@@ -72,22 +139,28 @@ build_sorce_code() {
     --with-threads \
     --with-file-aio \
     --with-http_ssl_module \
+    --with-http_v2_module \
     --with-http_realip_module \
     --with-http_addition_module \
-    --with-http_xslt_module=dynamic \
+    --with-http_image_filter_module=dynamic \
     --with-http_sub_module \
     --with-http_dav_module \
     --with-http_flv_module \
     --with-http_mp4_module \
+    --with-http_gunzip_module \
     --with-http_gzip_static_module \
-    --with-http_slice_module \
-    --with-http_stub_status_module \
+    --with-http_auth_request_module \
+    --with-http_secure_link_module \
     --with-http_perl_module \
+    --with-http_slice_module \
     --with-mail \
     --with-mail_ssl_module \
     --with-stream \
     --with-pcre \
     --with-debug \
+    --with-zlib=${workdir}/zlib \
+    --with-pcre=${workdir}/pcre \
+    --with-openssl=${workdir}/openssl \
     --http-client-body-temp-path=${installdir}/tmp/client \
     --http-proxy-temp-path=${installdir}/tmp/proxy \
     --http-fastcgi-temp-path=${installdir}/tmp/fcgi \
@@ -440,7 +513,11 @@ clean_file() {
 
 do_install(){
     check_user
-    download_src_and_install_dep
+    download_source
+    download_openssl
+    download_pcre
+    download_zlib
+    
     build_sorce_code
     add_config_file
     clean_file
