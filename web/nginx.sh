@@ -24,16 +24,18 @@ check_user() {
     fi
 }
 
-download_source() {
+insatll_depend() {
+    # 安装依赖的包
+    apt-get update && \
+    apt-get install zlib1g-dev openssl libssl-dev libpcre3 libpcre3-dev libxml2 libxml2-dev \
+    libxslt-dev perl libperl-dev -y
+}
+
+download_nginx() {
     # 安装下载工具
     if ! command_exists curl; then
         apt-get update && apt-get install axel -y
     fi
-
-    # 安装依赖的包
-    apt-get update && \
-    apt-get install zlib1g-dev openssl libssl-dev libpcre3 libpcre3-dev libxml2 libxml2-dev \
-    libxslt-dev perl libperl-dev libgd3 -y
 
     # 获取源代码
     echo http://nginx.org/download/nginx-${version}.tar.gz
@@ -60,7 +62,7 @@ download_pcre() {
     pcre="$(pcre-config --version)"
     url=$(printf "%s/%s/pcre-%s.tar.gz" ${prefix} ${pcre} ${pcre})
 
-    axel -n 10 -o pcre.tar.gz ${url}
+    curl -o pcre.tar.gz ${url}
 
     # 解压文件
     rm -rf pcre && mkdir pcre
@@ -92,7 +94,7 @@ build_sorce_code() {
         groupadd -r www
     fi
 
-    if [[ -z "$(cat /etc/password | grep -E '^www:')" ]]; then
+    if [[ -z "$(cat /etc/passwd | grep -E '^www:')" ]]; then
         useradd -r www -g www
     fi
 
@@ -142,7 +144,6 @@ build_sorce_code() {
     --with-http_v2_module \
     --with-http_realip_module \
     --with-http_addition_module \
-    --with-http_image_filter_module=dynamic \
     --with-http_sub_module \
     --with-http_dav_module \
     --with-http_flv_module \
@@ -508,16 +509,22 @@ EOF
 }
 
 clean_file() {
-    cd ../ && rm -rf nginx-*
+    cd ../ && \
+    rm -rf nginx-* && \
+    rm -rf openssl* && \
+    rm -rf pcre* && \
+    rm -rf zlib*
 }
 
 do_install(){
     check_user
-    download_source
+    insatll_depend
+
     download_openssl
     download_pcre
     download_zlib
-    
+    download_nginx
+
     build_sorce_code
     add_config_file
     clean_file
