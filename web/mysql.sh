@@ -58,7 +58,7 @@ before_install(){
        groupadd -r mysql
     fi
 
-    if [[ -z "$(cat /etc/password | grep -E '^mysql:')" ]]; then
+    if [[ -z "$(cat /etc/passwd | grep -E '^mysql:')" ]]; then
         useradd -r -g mysql -s /sbin/nologin mysql
     fi
 
@@ -94,7 +94,6 @@ make_install() {
     cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
     make -j${cpu} && make install
 }
-
 
 add_mysql_config() {
     # 创建配置文件my.cnf(确保文件没有被创建)
