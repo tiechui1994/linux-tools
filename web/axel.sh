@@ -6,8 +6,8 @@
 # Date: 19-1-18
 #----------------------------------------------------
 
-version="2.16.1"
-workdir=$(pwd)/axel-${version}
+version=2.16.1
+workdir=$(pwd)
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
@@ -29,7 +29,7 @@ check_param() {
     fi
 }
 
-download_source_code() {
+download_axel() {
     # 下载源代码
     if ! command_exists curl; then
         apt-get update && apt-get install curl
@@ -40,14 +40,14 @@ download_source_code() {
     tar -zvxf axel-${version}.tar.gz
 }
 
-do_install() {
+make_install() {
     # 安装依赖文件
     apt-get update && \
     apt-get install autoconf pkg-config gettext autopoint libssl-dev && \
     autoreconf -fiv
 
     # 编译安装
-     cd ${workdir} && \
+     cd ${workdir}/axel-${version} && \
     ./configure && make && make install
 
     # 检查
@@ -62,16 +62,16 @@ do_install() {
     fi
 }
 
-clear() {
+clean_file() {
     # 清理工作
-    cd ../ && rm -rf axel-${version}*
+    cd ${workdir} && rm -rf axel-${version}*
 }
 
 do_install() {
     check_param
-    download_source_code
-    do_install
-    clear
+    download_axel
+    make_install
+    clean_file
 }
 
 do_install

@@ -7,7 +7,7 @@
 #----------------------------------------------------
 
 version=3.6.9
-workdir=$(pwd)/mongodb-${version}
+workdir=$(pwd)
 installdir=/opt/local/mongodb
 
 command_exists() {
@@ -27,26 +27,22 @@ check_param() {
     fi
 }
 
-download_bin_package() {
+download_binary() {
     http="https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-${version}.tgz"
     axel -n 100 "${http}" -o mongodb-${version}.tgz
 
     # 解压源文件
-    if [[ -e ${workdir} ]]; then
-       rm -rf ${workdir}
-    fi
-
-    if [[ -e ${installdir} ]]; then
-        rm -rf ${installdir}
-    fi
+    rm -rf ${installdir} && \
+    rm -rf ${workdir}/mongodb && \
+    mkdir -p ${workdir}/mongodb
 
     # 构建mongodb
-    mkdir ${workdir} && \
-    tar -zvxf mongodb-${version}.tgz -C ${workdir} --strip-components 1 && \
-    mv ${workdir} ${installdir}
+    mkdir ${workdir}/mongodb-${version} && \
+    tar -zvxf mongodb-${version}.tgz -C ${workdir}/mongodb --strip-components 1 && \
+    mv ${workdir}/mongodb ${installdir}
 }
 
-add_service() {
+mongodb_service() {
     # 创建必要的目录
     mkdir -p ${installdir}/conf && \
     mkdir -p ${installdir}/data && \
@@ -276,13 +272,13 @@ EOF
 }
 
 clean_file() {
-    rm -rf ${workdir}
+    rm -f ${workdir}/mongodb-${version}.tgz
 }
 
 do_install() {
     check_param
-    download_bin_package
-    add_service
+    download_binary
+    mongodb_service
     clean_file
 }
 

@@ -48,14 +48,13 @@ install_libevent() {
 
 download_memcached() {
     prefix="https://memcached.org/files"
-    curl -o memcached.tar.gz "$prefix/memcached-$version.tar.gz"
+    curl -o memcached-${version}.tar.gz "$prefix/memcached-$version.tar.gz"
 
-    rm -rf ${workdir}/memcached && mkdir ${workdir}/memcached && \
-    tar -zvxf memcached.tar.gz -C ${workdir}/memcached --strip-components 1
+    tar -zvxf memcached-${version}.tar.gz
 }
 
 install_memcached() {
-    cd ${workdir}/memcached && \
+    cd ${workdir}/memcached-${version} && \
     ./configure \
     --prefix=${installdir} \
     --exec-prefix=${installdir} \
@@ -82,7 +81,7 @@ memcached_service() {
     mkdir -p ${installdir}/scripts && \
     mkdir -p ${installdir}/run
 
-    cp ${workdir}/memcached/scripts/start-memcached ${installdir}/scripts
+    cp ${workdir}/memcached-${version}/scripts/start-memcached ${installdir}/scripts
 
     # add conf
     cat > ${installdir}/etc/memcached.conf << 'EOF'
@@ -123,7 +122,7 @@ logfile /opt/local/memcached/run/memcached.log
 -l 127.0.0.1
 
 # Limit the number of simultaneous incoming connections. The daemon default is 1024
-# -c 1024
+-c 1024
 
 # Lock down all paged memory. Consult with the README and homepage before you do this
 # -k
@@ -267,7 +266,7 @@ EOF
     chmod a+x /etc/init.d/memcached && \
     update-rc.d memcached defaults
 
-    cd ${workdir} && rm -rf memcached && rm -rf memcached.tar.gz
+    cd ${workdir} && rm -rf memcached-${version}*
 }
 
 do_install() {

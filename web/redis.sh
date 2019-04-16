@@ -6,9 +6,9 @@
 # Date: 18-12-10
 #----------------------------------------------------
 
-version="4.0.0"
-workdir=$(pwd)/redis-${version}
-installdir="/opt/local/redis"
+version=4.0.0
+workdir=$(pwd)
+installdir=/opt/local/redis
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
@@ -23,19 +23,18 @@ check_user() {
     fi
 }
 
-download_source_code() {
+download_redis() {
     if ! command_exists curl; then
         apt-get update && \
         apt-get install curl
     fi
 
-    url="https://codeload.github.com/antirez/redis/tar.gz"
-    curl -o redis-${version}.tar.gz ${url}/${version} && \
-    tar -zvxf redis-${version}.tar.gz && \
-    cd ${workdir}
+    url="https://codeload.github.com/antirez/redis/tar.gz/$version"
+    curl -o redis-${version}.tar.gz ${url} && \
+    tar -zvxf redis-${version}.tar.gz
 }
 
-build_sorce_code() {
+make_install() {
     # 目录检测
     if [[ -e ${installdir} ]];then
         rm -rf ${installdir}
@@ -43,23 +42,19 @@ build_sorce_code() {
         mkdir -p ${installdir} && rm -rf ${installdir}
     fi
 
+    cd ${workdir}/redis-${version} && \
     make && make PREFIX=${installdir} install
 }
 
-add_config_file() {
-    # 修正配置文件
-    mkdir -p ${installdir}/conf && \
-    cp redis.conf ${installdir}/conf && \
-    cp sentinel.conf ${installdir}/conf
-
-    # 删除可能存在的配置文件
-    if [[ -e /etc/init.d/redis ]];then
-       rm -rf /etc/init.d/redis
-    fi
-
+redis_service() {
     # 创建配置文件目录
     mkdir ${installdir}/data && \
-    mkdir ${installdir}/logs
+    mkdir ${installdir}/logs && \
+    mkdir -p ${installdir}/conf
+
+    # 配置文件
+    cp redis.conf ${installdir}/conf && \
+    cp sentinel.conf ${installdir}/conf
 
     # 修改配置文件
     sed -i \
@@ -133,14 +128,13 @@ EOF
     update-rc.d redis defaults && \
     update-rc.d redis disable $(runlevel | cut -d ' ' -f2)
 
-     # 链接
+    # 链接
     ln -sf ${installdir}/bin/redis-cli /usr/local/bin/redis-cli && \
     ln -sf ${installdir}/bin/redis-server /usr/local/bin/redis-server
-}
 
-start_redis_service() {
-    systemctl daemon-reload && \
-    service redis start
+    # 启动
+    systemctl daemon-reload && service redis start
+
     if [[ -n $(netstat -an|grep '127.0.0.1:6379') ]];then
         echo
         echo "INFO: Redis Installed Successful"
@@ -148,18 +142,17 @@ start_redis_service() {
     fi
 }
 
-clear_file() {
-    cd ../ &&
+clean_file() {
+    cd ${workdir} &&
     rm -rf redis-${version}*
 }
 
 do_install() {
     check_user
-    download_source_code
-    build_sorce_code
-    add_config_file
-    start_redis_service
-    clear_file
+    download_redis
+    make_install
+    redis_service
+    clean_file
 }
 
 do_install

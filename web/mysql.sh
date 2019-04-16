@@ -8,7 +8,7 @@
 
 
 version=5.7.23
-workdir=$(pwd)/mysql-${version}
+workdir=$(pwd)
 installdir=/opt/local/mysql
 
 command_exists() {
@@ -28,27 +28,27 @@ check_param() {
     fi
 }
 
-download_source_code() {
+download_mysql() {
     # 下载源码包
-    mysql="https://cdn.mysql.com/Downloads/MySQL-5.7"
-    axel -n 100 "${mysql}/mysql-${version}.tar.gz" -o mysql-${version}.tar.gz
+    url="https://cdn.mysql.com/Downloads/MySQL-5.7/mysql-$version.tar.gz"
+    axel -n 100 ${url} -o mysql-${version}.tar.gz
 
     # 解压源文件
-    if [[ -e ${workdir} ]]; then
-       rm -rf ${workdir}
+    mysql=${workdir}/mysql-${version}
+    if [[ -e ${mysql} ]]; then
+       rm -rf ${mysql}
     fi
 
-    mkdir ${workdir} && \
-    tar -zvxf mysql-${version}.tar.gz -C ${workdir} --strip-components 1 && \
-    cd ${workdir}
+    mkdir ${mysql} && \
+    tar -zvxf mysql-${version}.tar.gz -C ${mysql} --strip-components 1
 
     # 下载boost依赖库文件
-    bost="https://nchc.dl.sourceforge.net/project/boost/boost/1.59.0/boost_1_59_0.tar.gz"
-    mkdir -p ${workdir}/boost && \
-    axel -n 100 ${bost} -o ${workdir}/boost/
+    boost="https://nchc.dl.sourceforge.net/project/boost/boost/1.59.0/boost_1_59_0.tar.gz"
+    mkdir -p ${mysql}/boost && \
+    axel -n 100 ${boost} -o ${mysql}/boost/
 }
 
-before_install(){
+install_depency(){
     # 安装依赖包
     apt-get update && \
     apt-get install cmake build-essential libncurses5-dev bison -y
@@ -73,7 +73,7 @@ before_install(){
 
 make_install() {
     # cmake编译
-    cd ${workdir} && \
+    cd ${workdir}/mysql-${version} && \
     cmake . \
     -DCMAKE_INSTALL_PREFIX=${installdir}/mysql \
     -DMYSQL_DATADIR=${installdir}/data \
@@ -95,14 +95,14 @@ make_install() {
     make -j${cpu} && make install
 }
 
-add_mysql_config() {
+add_config() {
     # 创建配置文件my.cnf(确保文件没有被创建)
-    if [[ -e ${installdir}/conf/my.cnf ]];then
+    if [[ -e ${installdir}/conf/my.cnf ]]; then
        rm -rf ${installdir}/conf/my.cnf
     fi
 
     # 写入配置内容
-    cat >> ${installdir}/conf/my.cnf << EOF
+    cat > ${installdir}/conf/my.cnf << EOF
 [client]
     port=3306
     socket=${installdir}/data/mysql.sock
@@ -147,7 +147,7 @@ EOF
     update-rc.d mysqld defaults
 }
 
-init_mysql_database() {
+init_database() {
     # 初始化数据(需要清空logs和data目录下的所有的内容)
     rm -rf ${installdir}/logs/* && \
     rm -rf ${installdir}/data/* && \
@@ -195,11 +195,11 @@ clean_file(){
 
 do_install() {
     check_param
-    download_source_code
-    before_install
+    download_mysql
+    install_depency
     make_install
-    add_mysql_config
-    init_mysql_database
+    add_config
+    init_database
     clean_file
 }
 
