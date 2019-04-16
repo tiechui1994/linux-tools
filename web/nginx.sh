@@ -27,8 +27,8 @@ check_user() {
 insatll_depend() {
     # 安装依赖的包
     apt-get update && \
-    apt-get install zlib1g-dev openssl libssl-dev libpcre3 libpcre3-dev libxml2 libxml2-dev \
-    libxslt-dev perl libperl-dev -y
+    apt-get install build-essential zlib1g-dev openssl libssl-dev libpcre3 libpcre3-dev libxml2 \
+    libxml2-dev libxslt-dev perl libperl-dev -y
 }
 
 download_nginx() {
@@ -54,19 +54,17 @@ download_openssl() {
 
     # 解压文件
     rm -rf openssl && mkdir openssl
-    tar -zvxf openssl.tar.gz -C ./openssl --strip-components 1
+    tar -zvxf openssl.tar.gz -C openssl --strip-components 1
 }
 
 download_pcre() {
-    prefix="https://jaist.dl.sourceforge.net/project/pcre/pcre"
-    pcre="$(pcre-config --version)"
-    url=$(printf "%s/%s/pcre-%s.tar.gz" ${prefix} ${pcre} ${pcre})
+    url="https://jaist.dl.sourceforge.net/project/pcre/pcre/8.38/pcre-8.38.tar.gz"
 
-    curl -o pcre.tar.gz ${url}
+     axel -n 10 -o pcre.tar.gz ${url}
 
     # 解压文件
     rm -rf pcre && mkdir pcre
-    tar -zvxf pcre.tar.gz -C ./pcre --strip-components 1
+    tar -zvxf pcre.tar.gz -C pcre --strip-components 1
 }
 
 download_zlib() {
@@ -76,7 +74,7 @@ download_zlib() {
 
     # 解压文件
     rm -rf zlib && mkdir zlib
-    tar -zvxf zlib.tar.gz -C ./zlib --strip-components 1
+    tar -zvxf zlib.tar.gz -C zlib --strip-components 1
 }
 
 build_sorce_code() {
@@ -494,8 +492,7 @@ EOF
 
     # 权限
     chmod a+x /etc/init.d/nginx && \
-    update-rc.d nginx defaults && \
-    update-rc.d nginx disable $(runlevel | cut -d ' ' -f2)
+    update-rc.d nginx defaults
 
     # 启动
     service nginx start
