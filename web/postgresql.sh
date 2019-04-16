@@ -21,7 +21,7 @@ command_exists() {
 #######################  准备工作 #######################################
 # 安装下载工具
 if ! command_exists axel; then
-   apt-get update && sudo apt-get install axel -y
+   apt-get update && apt-get install axel -y
 fi
 
 # 获取源代码
@@ -53,7 +53,7 @@ cd postgresql-${VERSION} && \
 
 # 安装
 cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
-make -j${cpu} && sudo make install
+make -j${cpu} &&  make install
 
 # 配置文件
 mkdir ${INSTALL_DIR}/etc && \

@@ -40,7 +40,7 @@ install_libevent() {
 
     # 安装
     cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
-    make -j${cpu} && sudo make install
+    make -j${cpu} &&  make install
 
     # 清理
     cd ${workdir} && rm -rf libevent*
@@ -63,7 +63,7 @@ install_memcached() {
 
     # 安装
     cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
-    make -j${cpu} && sudo make install
+    make -j${cpu} &&  make install
 }
 
 memcached_service() {

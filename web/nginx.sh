@@ -168,7 +168,7 @@ build_sorce_code() {
 
     # 安装
     cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
-    make -j${cpu} && sudo make install
+    make -j${cpu} && make install
 }
 
 add_config_file() {

@@ -24,7 +24,7 @@ check_param() {
     fi
 
     if ! command_exists axel; then
-        apt-get update && sudo apt-get install axel -y
+        apt-get update && apt-get install axel -y
     fi
 }
 
