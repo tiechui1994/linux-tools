@@ -58,7 +58,8 @@ download_bind() {
 
 install_depend() {
     apt-get update && \
-    apt-get install gcc build-essential openssl libssl-dev perl libperl-dev libcap-dev -y
+    apt-get install resolvconf net-tools gcc build-essential openssl libssl-dev perl libperl-dev
+    libcap-dev -y
 }
 
 make_install() {
@@ -335,7 +336,6 @@ logging {
 
 include "/etc/named.root.key";
 include "/opt/local/dns/etc/default-zones.conf";
-include "/opt/local/dns/var/named/*"
 EOF
 }
 
@@ -366,11 +366,12 @@ bind_service() {
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 DIR=/opt/local/dns
 PIDFILE=${DIR}/var/run/bind.pid
+CONF=${DIR}/etc/named.conf
 
 # for a chrooted server: "-u bind -t ${DIR}/lib/named"
 # Don't modify this line, change or create /etc/default/bind.
-OPTIONS="-u bind"
-RESOLVCONF=no
+OPTIONS="-u bind -c ${CONF}"
+RESOLVCONF=yes
 test -f /etc/default/bind && . /etc/default/bind
 
 test -x ${DIR}/sbin/rndc || exit 0
@@ -520,6 +521,8 @@ do_install() {
 
     install_depend
     make_install
+    bind_config
+    bind_service
 }
 
 do_install
