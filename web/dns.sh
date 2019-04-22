@@ -58,8 +58,8 @@ download_bind() {
 
 install_depend() {
     apt-get update && \
-    apt-get install resolvconf net-tools gcc build-essential openssl libssl-dev perl libperl-dev
-    libcap-dev -y
+    apt-get install resolvconf net-tools gcc build-essential openssl libssl-dev \
+    perl libperl-dev libcap-dev -y
 }
 
 make_install() {
