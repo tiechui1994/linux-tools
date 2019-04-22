@@ -309,9 +309,6 @@ test -x ${DAEMON} || exit 0
 
 # Try to extract nginx pidfile
 PID=$(cat ${CONF} | grep -Ev '^\s*#' | awk 'BEGIN { RS="[;{}]" } { if ($1 == "pid") print $2 }' | head -n1)
-if [ -z "${PID}" ]; then
-    PID=/run/nginx.pid
-fi
 
 # Check if the ULIMIT is set in /etc/default/nginx
 if [ -n "${ULIMIT}" ]; then
