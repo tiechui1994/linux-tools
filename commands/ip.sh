@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
 
-#ip [ OPTIONS ] OBJECT { COMMAND }
+#---------------------------------------------------------------------------------------------------
 #
-#OPTIONS:
+# ip [ OPTIONS ] OBJECT { COMMAND }
+#
+# OPTIONS:
 #    -V, -Version    版本信息
 #    -s, -stats      带有统计色彩
 #    -d, -details    详细信息
@@ -32,7 +34,7 @@
 #    -a, -all  对所有的对象执行特定命令
 #    -c, -collor 颜色控制
 #
-#OBJECT:
+# OBJECT:
 #    link       网络设备
 #    address    设备ip地址
 #    addrlabel  协议地址选择的标签配置
@@ -58,8 +60,8 @@
 #    xfrm      管理IPSec策略
 #
 #    tcp_metrics  TCP链接策略
-
-
+#
+#---------------------------------------------------------------------------------------------------
 
 # 获取公网IP方法
 
