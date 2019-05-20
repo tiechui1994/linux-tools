@@ -28,16 +28,16 @@
 #       ADD {INDEX|KEY} [index_name]
 #           [index_type] (key_part, ...) [index_option] // 添加索引或者主键
 #
-#       ADD {FULLTEXT|SPATIAL} [INDEX|KEY] [index_name]
+#       ADD {FULLTEXT|SPATIAL} [INDEX|KEY] [index_name] // 全文索引, 空间索引
 #           (key_part, ...) [index_option]
 #
-#       ADD [CONSTRAINT symbol] PRIMARK KEY
+#       ADD [CONSTRAINT symbol] PRIMARK KEY // 主键(约束)
 #           [index_type] (key_part, ...) [index_option]
 #
-#       ADD [CONSTRAINT symbol] UINQUE [INDEX|KEY] [index_name]
+#       ADD [CONSTRAINT symbol] UINQUE [INDEX|KEY] [index_name] // 唯一索引(约束)
 #           [index_type] (key_part, ...) [index_option]
 #
-#       ADD [CONSTRAINT symbol] FOREIGN KEY [index_name]
+#       ADD [CONSTRAINT symbol] FOREIGN KEY [index_name] // 外键(约束)
 #           [column, ...) reference_define
 #
 #       ADD CHECK (expr)
