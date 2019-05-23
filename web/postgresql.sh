@@ -4,60 +4,62 @@
 # ubuntu16.04安装 postgresql
 #==================================================================
 
-VERSION=10.5
-WORKDIR=$(pwd)/pgsql-${VERSION}
-INSTALL_DIR=/opt/local/pgsql
-USER=$(whoami)
-
-if [[ "${USER}" != "root" ]]; then
-    echo "请使用root权限执行"
-    exit
-fi
+version=10.5
+installdir=/opt/local/pgsql
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
 }
 
-#######################  准备工作 #######################################
-# 安装下载工具
-if ! command_exists axel; then
-   apt-get update && apt-get install axel -y
-fi
+check_user() {
+    if [[ "$(whoami)" != "root" ]];then
+        echo
+        echo "ERROR: Please use root privileges to execute"
+        echo
+        exit
+    fi
+}
 
-# 获取源代码
-doamin=http://ftp.postgresql.org/pub/source
-axel -n 100 -o postgresql-${VERSION}.tar.gz "${doamin}/v${VERSION}/postgresql-${VERSION}.tar.gz"
+download_postgre() {
+    if ! command_exists axel; then
+        apt-get update && apt-get install axel -y
+    fi
 
-# 解压文件
-tar -zvxf postgresql-${VERSION}.tar.gz && cd postgresql-${VERSION}
+    doamin=http://ftp.postgresql.org/pub/source
+    axel -n 100 -o postgresql.tar.gz "${doamin}/v${version}/postgresql-${version}.tar.gz"
 
-# 安装依赖包
-apt-get install zlib1g zlib1g-dev libedit-dev libperl-dev openssl libssl-dev \
-libxml2 libxml2-dev libxslt-dev bison tcl tcl-dev flex -y
+    [ -d postgresql ] || mkdir postgresql
+    tar -zvxf postgresql.tar.gz -C postgresql --strip-components 1
+}
 
-#######################  安装 #######################################
-# 删除旧目录
-rm -rf ${INSTALL_DIR}
+install_depend() {
+    apt-get install zlib1g zlib1g-dev libedit-dev libperl-dev openssl libssl-dev \
+        libxml2 libxml2-dev libxslt-dev bison tcl tcl-dev flex -y
+}
 
-# 编译配置
-cd postgresql-${VERSION} && \
-./configure \
---prefix=${INSTALL_DIR} \
---with-tcl \
---with-perl \
---with-openssl \
---without-readline \
---with-libedit-preferred \
---with-libxml \
---with-libxslt
+install() {
+    rm -rf ${installdir}
+    cd postgresql && \
+    ./configure \
+    --prefix=${installdir} \
+    --with-tcl \
+    --with-perl \
+    --with-openssl \
+    --without-readline \
+    --with-libedit-preferred \
+    --with-libxml \
+    --with-libxslt
 
-# 安装
-cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
-make -j${cpu} &&  make install
+    # make and install
+    cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
+    make -j${cpu} &&  make install
+}
 
-# 配置文件
-mkdir ${INSTALL_DIR}/etc && \
-cat >> ${INSTALL_DIR}/etc/pgsql.conf << EOF
+add_config() {
+    mkdir -p ${installdir}/log && \
+    mkdir -p ${installdir}/data && \
+    mkdir -p ${installdir}/etc && \
+    cat >> ${installdir}/etc/pgsql.conf << EOF
 #------------------------------------------------------------------------------
 # FILE LOCATIONS
 #------------------------------------------------------------------------------
@@ -231,10 +233,14 @@ log_line_prefix = '%m [%p] '		# special values:
 
 log_timezone = 'GMT'
 EOF
+}
 
-# 其他工作
+do_instll() {
+    check_user
+    download_postgre
+    install_depend
+    install
+    add_config
+}
 
-
-#######################  清理 #######################################
-cd .. && \
-rm -rf ${WORKDIR}*
+do_instll
