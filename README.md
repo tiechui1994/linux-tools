@@ -2,7 +2,7 @@
 
 ## android
 
-- adb_connect.sh : 解决adb连接手机出现的没有权限问题
+- adb-connect.sh : 解决adb连接手机出现的没有权限问题
 
 ## commands
 
@@ -21,7 +21,7 @@
 
 ## deb
 
-- make_deb.sh : 使用dpkg-deb制作deb的流程
+- make-deb.sh : 使用dpkg-deb制作deb的流程
 
 ## doc
 
@@ -34,12 +34,12 @@
 
 ## mount
 
-- mount_fs.sh : 文件系统期自动挂在
+- mount-fs.sh : 文件系统期自动挂在
 
 ## sudo
 
-- pam_root.sh : 使用pam的方式解决sudo免密码使用root权限
-- sudoer_root.sh : 在sudoer文件当中添加记录解决sudo免密码使用root权限
+- pam-root.sh : 使用pam的方式解决sudo免密码使用root权限
+- sudoer-root.sh : 在sudoer文件当中添加记录解决sudo免密码使用root权限
 
 ## web
 
