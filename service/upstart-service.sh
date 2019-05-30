@@ -25,7 +25,7 @@
 
 
 #---------------------------------------------------------------------------------------------------
-# Upstart Job Config
+# Upstart job Config
 #
 # 任务支持的语法关键字
 #
@@ -35,7 +35,7 @@
 # - Event Definition:
 # start on, stop on, manual
 #
-# - Job Environment:
+# - job Environment:
 # env, export
 #
 # - Services, Tasks and Respawning:
@@ -96,10 +96,18 @@
 # stop on: 事件, 停止任务
 # stop on shutdown // 系统停止
 #
-# respawn: 命令, 设置服务异常停止后自动重启
-# respawn
 #
-# respawn limit: 命令, 设置服务异常停止后启动次数及时间间隔
+# respawn
+# 如果没有此section, 无论job的主进程以何种方式退出, job的主进程的状态都会变为stop/waiting状态.
+# 当使用此section, 当主 script/exec 退出的时候, 如果没有将job的状态改为stop, 当前的job将会重新启动. 这包括执行 pre-start
+# post-start, post-stop. 注意: 不会执行 pre-stop
+#
+#
+# respawn limit COUNT INTERVAL | unlimited
+# respawn limit与respawn不同, 设置 respawn limit 并不意味着设置了 respawn.
+# respawn的目标是limit. 如果在 INTERVAL 秒内重启 job 超过 COUNT 次, 则会认为该job存在更深层次的问题, 并将其停止掉.
+# 默认的 COUNT 是10, 默认是 INTERVAL 是5
+#
 # respawn limit 15 3  // 服务异常, 每隔3秒启动一次, 最多启动15次(不太起作用)
 #
 # instance: 定义实例的名字, 可以通过命令给任务传递参数
@@ -110,15 +118,22 @@
 # start mytest $TTY=tty1
 #
 #===================================================================================================
-# kill timeout: 命令, 在到达指定的事件后, 停止应用
+# kill timeout: 命令, Upstart在终止进程之前将等待的秒数. 默认值为5秒.
 # kill timeout 5
 # 注: kill timeout命令是正常退出, 不会被respawn重启
+#
+# kill signal
+# 设置stopping signal, 默认是SIGTERM. 当一个job的主进程接收到该信号后会停止运行的job
+#
+# kill signal INT
+# kill signal SIGINT
+#
 #
 #
 # console: 命令, 控制输出, 支持4种操作, log|output|owner|none
 #
-# console log, 将standard input连接到/dev/null,  standard output和standard err 连接到 /var/log/upstart/$JOB.log (
-# System Job), $HOME/.cache/upstart (Session Job)
+# console log, 将standard input连接到/dev/null,  standard output和standard err 连接到 /var/log/upstart/$job.log (
+# System job), $HOME/.cache/upstart (Session job)
 #
 # console none, 将 standard input, standard output, standard err 连接到 /dev/null
 #
@@ -134,7 +149,7 @@
 #
 #
 # emits <value>
-# 指定Job配置文件生成的事件(直接或间接通过子进程). 对于每个发出的事件, 可以多次指定此section. 此section也可以使用以下
+# 指定job配置文件生成的事件(直接或间接通过子进程). 对于每个发出的事件, 可以多次指定此section. 此section也可以使用以下
 # shell通配符来简化规范:
 # - "*"
 # - "?"
@@ -145,7 +160,7 @@
 #
 #
 # expect
-# Upstart将追踪它认为属于Job的进程ID. 如果Job使用了instance section,  则Upstart将跟踪该Job的每个唯一实例的PID.
+# Upstart将追踪它认为属于job的进程ID. 如果job使用了instance section,  则Upstart将跟踪该job的每个唯一实例的PID.
 #
 # 如果未指定expect section, Upstart将跟踪它在exec或script section中执行的第一条命令的PID. 但是,大多数Unix服务都
 # 是daemonize, 这意味着它们将创建一个新进程(使用fork), 这是初始进程的子进程. 通常, 服务将 "double fork" 以确保它们
@@ -153,6 +168,17 @@
 #
 # 在这种情况下, Upstart必须有一种方法来跟踪它, 所以可以使用expect fork,或者 expect daemon, 从而允许Upstart使用
 # ptrace来"count forks".
+#
+# export fork, 执行的进程只调用一次fork.  一些守护进程在接收到SIGHUP信号时fork出一个新副本, 这意味着当使用Upstart的
+# reload命令时, Upstart将失去对该守护进程的跟踪. 在这种情况下，expect fork不能使用.
+#
+# export daemon, 执行的进程只调用两次fork.
+#
+# export stop, job的主进程会挂起SIGSTOP信号以表明自己已准备就绪(spawned). init接收到SIGSTOP信号后:
+# - 立即发送 SIGCONT 信号给该进程, job主进程继续执行.
+# - 执行 job 的 post-start script(如果有)
+#
+# 只有这样, Upstart才会确认当前的job处于running状态.
 #
 #===================================================================================================
 # env KEY[=VALUE]: 变量, 设置任务的环境变量
@@ -167,6 +193,18 @@
 # chroot: 变量, 设置任务的根目录
 #
 # chdir: 变量, 设置任务的工作目录
+#
+# manual
+# 告知 Upstart 忽略当前 job 的 start on/stop on section. 它有助于在系统上保持job的逻辑和功能, 而不会在启动时自动
+# 启动.
+#
+# normal exit
+# 用于改变 Upstart 对 "normal" 退出状态。 通常, 进程以状态0(zero)退出以表示成功, 而非零以表示失败.
+# 如果应用程序退出状态13并且希望Upstart将其视为正常(成功)退出, 那么可以这样指定:
+# normal exit 0 13
+#
+# 也可以使用Signal.
+# normal exit 0 13 SIGUSR1 SIGWINCH
 #
 #---------------------------------------------------------------------------------------------------
 
