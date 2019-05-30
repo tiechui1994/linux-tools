@@ -57,10 +57,13 @@
 # - 过期关键字:
 # service, daemon, pid
 #
-#
+#---------------------------------------------------------------------------------------------------
+
+
+#---------------------------------------------------------------------------------------------------
 # 语法介绍
 #
-# exec: 执行命令, 在script块当中使用
+# exec: 执行命令, 在script块或者单独使用
 # script: 脚本块, 包括运行脚本
 # script
 #   exec printf "hello"
@@ -86,6 +89,7 @@
 #   exec printf "post-stop"
 # end script
 #
+#===================================================================================================
 # start on: 事件, 启动任务.
 # start on startup // 系统启动
 #
@@ -105,15 +109,53 @@
 # # 传递参数
 # start mytest $TTY=tty1
 #
-#
+#===================================================================================================
 # kill timeout: 命令, 在到达指定的事件后, 停止应用
 # kill timeout 5
 # 注: kill timeout命令是正常退出, 不会被respawn重启
 #
 #
-# console: 命令, 控制输出, 支持4种操作, logged|output|owner|none
+# console: 命令, 控制输出, 支持4种操作, log|output|owner|none
 #
-# env: 变量, 设置任务的环境变量
+# console log, 将standard input连接到/dev/null,  standard output和standard err 连接到 /var/log/upstart/$JOB.log (
+# System Job), $HOME/.cache/upstart (Session Job)
+#
+# console none, 将 standard input, standard output, standard err 连接到 /dev/null
+#
+# console output, 将 standard input, standard output, standard err 连接到 console device
+#
+# console owner, 类似 console output
+#
+# console output
+# script
+#   logger "Hello";
+# end script
+# 注: logger 是系统的日志命令
+#
+#
+# emits <value>
+# 指定Job配置文件生成的事件(直接或间接通过子进程). 对于每个发出的事件, 可以多次指定此section. 此section也可以使用以下
+# shell通配符来简化规范:
+# - "*"
+# - "?"
+# - "[" 和 "]"
+#
+# emits *-devcie-*
+# emits foo-event bar-event hello-event
+#
+#
+# expect
+# Upstart将追踪它认为属于Job的进程ID. 如果Job使用了instance section,  则Upstart将跟踪该Job的每个唯一实例的PID.
+#
+# 如果未指定expect section, Upstart将跟踪它在exec或script section中执行的第一条命令的PID. 但是,大多数Unix服务都
+# 是daemonize, 这意味着它们将创建一个新进程(使用fork), 这是初始进程的子进程. 通常, 服务将 "double fork" 以确保它们
+# 与初始过程无任何关联. (注意, 没有服务会fork 2次以上, 这样做没有额外的好处)
+#
+# 在这种情况下, Upstart必须有一种方法来跟踪它, 所以可以使用expect fork,或者 expect daemon, 从而允许Upstart使用
+# ptrace来"count forks".
+#
+#===================================================================================================
+# env KEY[=VALUE]: 变量, 设置任务的环境变量
 #
 # umask: 变量, 设置任务的文件权限的掩码
 #
