@@ -6,6 +6,20 @@
 # Date: 18-11-8
 #----------------------------------------------------
 
+# check system init
+check_init() {
+    if [[ $(/sbin/init --version) =~ upstart ]]; then
+        echo upstart
+    elif [[ $(systemctl) =~ -\.mount ]]; then
+        echo systemd
+    elif [[ -f /etc/init.d/cron && ! -h /etc/init.d/cron ]]; then
+        echo sysv-init
+    else
+        echo null
+    fi
+}
+
+
 #---------------------------------------------------------------------------------------------------
 # 在ubuntu系列中, 服务相关的命令包括:
 # service, update-rc.d, init, invoke-rc.d, systemctl
