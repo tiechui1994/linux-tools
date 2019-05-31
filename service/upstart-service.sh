@@ -104,6 +104,7 @@
 #
 # 如果没有通过KEY指定环境变量来限制匹配, 则条件将匹配指定事件的所有实例.
 #
+# - normal start
 # start on (local-filesystems and net-device-up IFACE!=lo)
 # start on runlevel [2345]
 #
@@ -113,10 +114,30 @@
 #
 # 但是, 如果service要求使用非环回网卡(即, 它没有广播功能就无法启动), 那么就需要明确指定条件.
 #
-# stop on: 事件, 停止任务
+# - depends on another service
+# start on started other-service
+#
+# - start must precede(优先) another service
+# start on starting other-service
+#
+# example: memcached.conf
+# start on starting apache2
+# stop on stopping apache2
+# exec /usr/sbin/memcached
+#
+#
+# stop on: 事件, 停止任务, 与 start on 类似
 # stop on shutdown // 系统停止
 #
 #
+# task
+# 从概念说, task只是一项短暂的job.
+# 如果没有 task 关键字, 一旦job是started状态, job启动的事件都将异步执行, 即, 当job 触发了 starting event之后, 执
+# 行 pre-start脚本, 开始执行job的 script/exec 和 post-start, 并且触发 started event.
+#
+# 使用task关键字, job的 starting event 到 started event 之间是阻塞执行的. 
+#
+#===================================================================================================
 # respawn
 # 如果没有此section, 无论job的主进程以何种方式退出, job的主进程的状态都会变为stop/waiting状态.
 # 当使用此section, 当主 script/exec 退出的时候, 如果没有将job的状态改为stop, 当前的job将会重新启动. 这包括执行 pre-start
@@ -129,6 +150,7 @@
 # 默认的 COUNT 是10, 默认是 INTERVAL 是5
 #
 # respawn limit 15 3  // 服务异常, 每隔3秒启动一次, 最多启动15次(不太起作用)
+#
 #
 # instance: 定义实例的名字, 可以通过命令给任务传递参数
 # instance $TTY
@@ -147,7 +169,6 @@
 #
 # kill signal INT
 # kill signal SIGINT
-#
 #
 #
 # console: 命令, 控制输出, 支持4种操作, log|output|owner|none
