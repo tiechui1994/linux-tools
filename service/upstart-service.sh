@@ -90,8 +90,28 @@
 # end script
 #
 #===================================================================================================
-# start on: 事件, 启动任务.
+# start on EVENT [[KEY=]VALUE] ... [and|or...]
+# 每个事件EVENT都由其名称给出. 使用运算符"and","or"运行多个事件. 并且可以使用括号执行复杂表达式.
+# 还可以通过知道KEY和预期的VALUE来匹配事件中包含的环境变量.
+#
+# VALUE 可能包含通配符. 并且可能会扩展使用env section定义的任何变量的值.
+#
+# 在KEY和VALUE之间使用 "!=" 表示否定.
+# 注: 如果job已经启动并且不是instance job. 如果启动条件为true(再次), 则不会采取进一步操作.
+#
 # start on startup // 系统启动
+# start on foo or bar
+#
+# 如果没有通过KEY指定环境变量来限制匹配, 则条件将匹配指定事件的所有实例.
+#
+# start on (local-filesystems and net-device-up IFACE!=lo)
+# start on runlevel [2345]
+#
+# 是否使用更通用的"runlevel" 或 更明确的local-filesystems和 net-device-up 事件的差异应该以job行为为指导.
+# 如果service没有使用具体的网络接口(例如,它绑定到0.0.0.0, 或使用setsockopt SO_FREEBIND), 那么runlevel是更好的选择.
+# 因为这样service将提前start并且可以使用并行的方式启动.
+#
+# 但是, 如果service要求使用非环回网卡(即, 它没有广播功能就无法启动), 那么就需要明确指定条件.
 #
 # stop on: 事件, 停止任务
 # stop on shutdown // 系统停止

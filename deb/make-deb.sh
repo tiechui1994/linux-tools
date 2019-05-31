@@ -11,8 +11,8 @@
 # deb包的文件结构:
 #   deb包里面的结构, DEBIAN目录和具体安装目录(模拟安装目录, 如etc, usr, opt, tmp等).
 #
-#   在DEBIAN目录至少有control文件, 还可能有postinst(postinstallation),
-#   postrm(postremove), preinst(preinstallation), prerm(preremove), copyright(版权),
+#   在DEBIAN目录至少有control文件, 还可能有 preinst(preinstallation), postinst(postinstallation),
+#   prerm(preremove), postrm(postremove) copyright(版权),
 #   changelog(修订目录) 和 conffiles等.
 #
 #   control文件: 描述软件包的名称(Package), 版本(Version), 描述(Description)等. 是deb包必须
@@ -94,32 +94,44 @@
 #       否则dpkg-deb将写入文件{package}_{version}_{arch}.deb, 写入的文件的目录是directory.
 #       如果第二参数是archive(归档文件), 则dpkag-deb将文件写入archive.
 #
-#   -I, --info archive [control-file-name...]
-#       提供有关二进制包归档的信息.
 #
-#       如果未指定 control-file-name, 则它将打印包的内容及其控制文件的摘要.
-#       如果指定了 control-file-name, 则dpkg-deb将按照指定的顺序打印它们.
+#
+#   -W, --show archive
+#       提供有关二进制包版本信息.
+#
+#   -I, --info archive [control-file-name...]
+#       提供有关二进制包文件内容的信息.
+#
+#       如果未指定 control-file-name, 则它将打印包的内容及其control文件的摘要.
+#       如果指定了 control-file-name, 则dpkg-deb将按照指定的顺序打印它们. (preinst,postinst,prerm,postrm)
 #
 #   -f, --field archive [control-field-name...]
-#       从二进制包归档中提取控制文件信息.
+#       从二进制包归档中提取control文件信息.
 #       如果未指定control-field-name, 则它将打印整个control文件.
-#       如果指定了control-field-name, 则dpkg-deb将按照它们的顺序打印起其内容.
-#
+#       如果指定了control-field-name, 则dpkg-deb将按照它们的顺序打印起其内容.(version,depends,package,...)
 #
 #   -c, --comments archive
-#       列出程序包归档文件系统树归档部分的内容.它目前以tar的详细列表生成的格式生成.
+#       列出程序包归档文件系统树的内容. 它目前以tar的详细列表生成的格式生成.
+#
+#
+#
+#   -e, --control archive [directory]
+#       将control文件从包存档中提取到指定目录中.
+#
+#       如果未指定directory, 则使用当前目录中的子目录DEBIAN
 #
 #   -x, --extract archive directory
-#       将文件系统树从包存档中提取到指定的目录中.
-#       注意: 将包解压缩到根目录不会导致正确的安装! 请使用dpk去安装包
+#       将文件系统树从包存档中提取到 '指定目录' 中.
+#       注意: 将包解压缩到根目录不会导致正确的安装! 请使用dpkg去安装包
 #
 #       在解压的时候会创建directory, 并修改其权限以匹配包的内容.
 #
-#   -e, --control archive [directory]
-#       将control文件从包存档中提取到指定的目录中.
+#   -X, --vextract archive directory
+#       等价于 --extract -v, 展示详情
 #
-#       如果未指定directory, 则使用当前目录中的子目录DEBIAN
-#       如果有必要, 将创建目标目录.
+#   -R, --raw-extract archive directory
+#        将文件系统树从包存档中提取到 '指定目录' 中. 并且 control 解压到指定目录的 DEBIAN 子目录中
+#
 #
 # OPTION:
 #   -z compress-level
