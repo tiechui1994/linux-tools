@@ -135,7 +135,7 @@
 # 如果没有 task 关键字, 一旦job是started状态, job启动的事件都将异步执行, 即, 当job 触发了 starting event之后, 执
 # 行 pre-start脚本, 开始执行job的 script/exec 和 post-start, 并且触发 started event.
 #
-# 使用task关键字, job的 starting event 到 started event 之间是阻塞执行的. 
+# 使用task关键字, job的 starting event 到 started event 之间是阻塞执行的.
 #
 #===================================================================================================
 # respawn
