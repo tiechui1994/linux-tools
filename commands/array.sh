@@ -31,11 +31,11 @@
 #---------------------------------------------------------------------------------------------------
 # 数组遍历:
 #
-# for i in ${array[@]}; do; echo $i; done // 推荐使用
+# for i in ${array[@]}; do echo $i; done // 推荐使用
 #
-# for i in ${array[*]}; do; echo $i; done
+# for i in ${array[*]}; do echo $i; done
 #
-# for i in ${!array[@]} do; echo $array[$i]; done // 其中 $i 是索引
+# for i in ${!array[@]}; do echo $array[$i]; done // 其中 $i 是索引
 #
 # ${array[@]} 和 ${array[*]} 区别:
 #    ${array[@]}  和  ${array[*]} 是没有区别的.
