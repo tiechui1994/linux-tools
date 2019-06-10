@@ -213,6 +213,57 @@
 #
 #   --mss value[:value]
 #   将TCP SYN或SYN/ACK数据包与指定的MSS(maximum segment size)值(或范围)匹配, 它控制该连接的最大数据包大小.
+#
+# cluster(配合arp使用)
+# 允许部署网关和后端负载共享群集, 而无需负载均衡器. 此匹配要求所有节点都看到相同的数据包.
+#
+#   --cluster-total-nodes num
+#   集群节点数量
+#
+#   [!] --cluster-local-node num
+#   当前节点的id, 从1开始
+#
+#   [!] --cluster-local-nodemask mask
+#   设置本地节点号ID掩码. 可以使用此选项替换 --cluster-local-node.
+#
+#   --cluster-hash-seed value
+#   设置hash的初始化种子
+#
+#   example:
+#   iptables  -t mangle  -A PREROUTING  -i eth1  -m cluster  --cluster-total-nodes 2 \
+#   --cluster-local-node 1  --cluster-hash-seed 0xdeadbeef  -j MARK --set-mark 0xffff
+#
+#   iptables  -t mangle  -A PREROUTING  -i eth2  -m cluster  --cluster-total-nodes 2 \
+#   --cluster-local-node 2  --cluster-hash-seed 0xdeadbeef  -j MARK --set-mark 0xffff
+#
+#   iptables -t mangle  -A PREROUTING  -i eth1  -m mark  ! --mark 0xffff  -j DROP
+#
+#   iptables -t mangle  -A PREROUTING  -i eth2  -m mark  ! --mark 0xffff  -j DROP
+#
+#   以下命令使所有节点看到相同的数据包:
+#   ip maddr add 01:00:5e:00:01:01 dev eth1
+#   ip maddr add 01:00:5e:00:01:02 dev eth2
+#
+#   arptables  -A OUTPUT  -o eth1  --h-length 6  -j mangle  --mangle-mac-s 01:00:5e:00:01:01
+#   arptables  -A INPUT   -i eth1  --h-length 6  --destination-mac 01:00:5e:00:01:01  -j mangle \
+#   --mangle-mac-d 00:zz:yy:xx:5a:27
+#
+#   arptables  -A OUTPUT  -o eth2  --h-length 6  -j mangle  --mangle-mac-s 01:00:5e:00:01:02
+#   arptables  -A INPUT   -i eth2  --h-length 6  --destination-mac 01:00:5e:00:01:02  -j mangle \
+#   --mangle-mac-d 00:zz:yy:xx:5a:27
+#
+#   在TCP连接的情况下,必须禁用拾取工具以避免将回复方向上的TCP ACK数据包标记为有效.
+#   echo 0 > /proc/sys/net/netfilter/nf_conntrack_tcp_loose
+#
+#
+# connlimit
+# 允许您限制每个客户端IP地址(或客户端地址块)与服务器的并行连接数.
+#
+#   --connlimit-upto num
+#   如果现有连接数低于或等于n, 则匹配.
+#
+#   --connlimit-above num
+#   如果现有连接数高于n, 则匹配.
 #---------------------------------------------------------------------------------------------------
 
 
@@ -225,7 +276,7 @@
 #   --to-destination ipaddr-ipaddr
 #   地址范围
 #
-# CLUSTERIP (需要测试)
+# CLUSTERIP (kernel 4.6之前使用, 之后使用扩展匹配cluster)
 #   此模块允许配置一个简单的节点集群, 这些节点共享某个IP和MAC地址. 在此群集中的节点之间连接是静态分布.
 #
 #   --new
