@@ -21,7 +21,41 @@
 # 用户的日志依然记录到系统日志中. 这是默认值. "none"表示不对日志文件按用户进行分割, 而是将所有的日志都记录到系统日志中.
 # 注意: 仅分割持久保存的日志(/var/log/journal), 永不分割内存中的日志(/var/run/journal)
 #
+# RateLimitIntervalSec=, RateLimitBurst=
+# 限制日志的生成速度(0表示不做限制). RateLimitIntervalSec设置一个时间段, 默认是30秒. RateLimitBurst设置一个正整数,
+# 表示消息条数, 默认值是1000条. 表示在RateLimitIntervalSec时间内,每个服务最多允许产生RateLimitBurst数量(条数)的日
+# 志. 在同一个时间段内, 超出数量限制的日志将被丢弃, 直到下一个时间段再次开始记录. 对于所有被丢弃的日志消息, 仅用一条类似
+# "xxx条消息被丢弃"的消息来替代. RateLimitIntervalSec时间单位: "ms", "s", "min", "h", "d"
 #
+# SystemMaxUse=, SystemKeepFree=, SystemMaxFileSize=, SystemMaxFiles=
+# RuntimeMaxUse=, RuntimeKeepFree=, RuntimeMaxFileSize=, RuntimeMaxFiles=
+# 限制日志文件的大小上下限. 以"System" 开头的选项用于限制磁盘使用量. 即/var/log/journal的使用量. 以"Runtime"开头的
+# 选项用于限制内存使用量, 即/run/log/journal的使用量.
+# 以"System"开头的选项仅在/var/log/journal目录确实存在且可写时才有意义. 以"Runtime"开头的选项永远有意义.
+# SystemMaxUse= 与 RuntimeMaxUse= 限制全部日志文件加在一起最多可以占用的空间. SystemKeepFree= 与 RuntimeKeepFree=
+# 表示除日志文件之外, 至少保留多少空间给其他用途. systemd-journald会同时考虑两个因素, 并且尽量限制日志文件的总大小, 以
+# 同时满足这两个条件.
+# SystemMaxUse= 与 RuntimeMaxUse= 的默认值是10%空间与4G两者中较小者. SystemKeepFree= 与 RuntimeKeepFree= 的
+# 默认值是15%空间与4G两者中较大者. 如果在systemd-journald启动时, 文件系统即将被填满并且已经超越了SystemKeepFree=
+# 或 RuntimeKeepFree= 的限制, 那么日志记录将被暂停.
+# SystemMaxFileSize= 与 RuntimeMaxFileSize= 限制单个文件的最大体积, 到达此限制后日志文件将会自动回滚. 默认值是对
+# 应的SystemMaxUse= 与 RuntimeMaxUse值的1/8.
+# SystemMaxFiles= 与 RuntimeMaxFiles= 限制最多允许同时存在多少个日志文件, 超出此限制后, 最老的文件将被删除. 默认是
+# 100
+#
+# SyncIntervalSec=
+# 向磁盘刷写日志文件的时间间隔, 默认是5min. 刷写之后, 日志文件将处于离线(OFFLINE)状态. 注意, 当收到CRIT, ALERT,
+# EMERG级别的日志消息后, 将会无条件的立即刷写日志文件. 因此该设置仅对ERR, WARNING, NOTICE, INFO, DEBUG级别的日志
+# 消息有意义.
+#
+# ForwardToSyslog=, ForwardToKMsg=, ForwardToConsole=, ForwardToWall=,
+# ForwardToSyslog= 表示是否将接收到的日志消息转发给syslog守护进程, 默认值是"no"
+# ForwardToKMsg= 表示是否将接收到的消息转发给内核日志缓冲区(kmsg), 默认值是"no"
+# ForwardToConsole= 表示是否将接收到的消息转发给系统控制台, 默认值是"no". 设置成yes需要指定TTYPath= 指定转发目标
+# ForwardToWall= 表示是否将接收到的消息转发给所有已登录用户 默认值是"yes"
+#
+# TTYPath=
+# 指定 ForwardToConsole=yes 时所使用的控制台TTY, 默认值是 /dev/console
 #---------------------------------------------------------------------------------------------------
 
 
