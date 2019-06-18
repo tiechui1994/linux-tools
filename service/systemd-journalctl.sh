@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #----------------------------------------------------
-# File: systemd-manage.sh
-# Contents: systemd manager cmd
+# File: systemd-journalctl.sh
+# Contents: journalctl
 # Date: 19-6-5
 #----------------------------------------------------
 
