@@ -27,6 +27,122 @@
 #    I 多线程(使用CLONE_THREAD)
 #    + 位于前台进程组
 #
+#   CODE        NORMAL   HEADER
+#   cputime     TIME      cumulative CPU time, "[DD-]hh:mm:ss" format.  (alias time).
+#
+#   drs         DRS       数据驻留集大小,专用于可执行代码以外的物理内存量.
+#
+#   etime       ELAPSED   自该过程开始以来经过的时间, 格式: [[DD-]hh:]mm:ss.
+#
+#   fgid        FGID      文件系统访问组id
+#
+#   fgroup      FGROUP    文件系统访问组
+#
+#   flag        F         标示
+#
+#   fname       COMMAND   first 8 bytes of the base name of the process's executable file.  The output in this column may contain spaces.
+#
+#   fuid        FUID      文件系统访问用户标识.
+#
+#   fuser       FUSER     文件系统访问用户
+#
+#   gid         GID       进程有效组id
+#
+#   group       GROUP     进程有效组
+#
+#   label       LABEL     security label, most commonly used for SELinux context data.  This is for the Mandatory Access Control ("MAC") found on high-security systems.
+#
+#   lstart      STARTED   time the command started.  See also bsdstart, start, start_time, and stime.
+#
+#       lsession    SESSION   displays the login session identifier of a process, if systemd support has been included.
+#
+#       nice        NI        see ni.(alias ni).
+#
+#       pending     PENDING   mask of the pending signals. See signal(7).  Signals pending on the process are distinct from signals pending on individual threads.  Use the m option
+#                             or the -m option to see both.  According to the width of the field, a 32 or 64 bits mask in hexadecimal format is displayed.  (alias sig).
+#
+#       pgid        PGID      process group ID or, equivalently, the process ID of the process group leader.  (alias pgrp).
+#
+#       pgrp        PGRP      see pgid.  (alias pgid).
+#
+#       pid         PID       进程id
+#
+#       pmem        %MEM      see %mem.  (alias %mem).
+#
+#       policy      POL       scheduling class of the process.  (alias class, cls).  Possible values are:
+#
+#                                      -   not reported
+#                                      TS  SCHED_OTHER
+#                                      FF  SCHED_FIFO
+#                                      RR  SCHED_RR
+#                                      B   SCHED_BATCH
+#                                      ISO SCHED_ISO
+#                                      IDL SCHED_IDLE
+#                                      ?   unknown value
+#
+#       ppid        PPID      parent process ID.
+#
+#       pri         PRI       priority of the process.  Higher number means lower priority.
+#
+#       rgid        RGID      real group ID.
+#
+#       rgroup      RGROUP    real group name.  This will be the textual group ID, if it can be obtained and the field width permits, or a decimal representation otherwise.
+#
+#       rssize      RSS       see rss.  (alias rss, rsz).
+#
+#       rtprio      RTPRIO    realtime priority.
+#
+#       ruid        RUID      real user ID.
+#
+#       ruser       RUSER     real user ID.  This will be the textual user ID, if it can be obtained and the field width permits, or a decimal representation otherwise.
+#
+#       s           S         minimal state display (one character).  See section PROCESS STATE CODES for the different values.  See also stat if you want additional information
+#                             displayed.  (alias state).
+#
+#       sched       SCH       scheduling policy of the process.  The policies SCHED_OTHER (SCHED_NORMAL), SCHED_FIFO, SCHED_RR, SCHED_BATCH, SCHED_ISO, and SCHED_IDLE are
+#                             respectively displayed as 0, 1, 2, 3, 4, and 5.
+#
+#       size        SIZE      approximate amount of swap space that would be required if the process were to dirty all writable pages and then be swapped out.  This number is very
+#                             rough!
+#
+#       stackp      STACKP    address of the bottom (start) of stack for the process.
+#
+#       start       STARTED   time the command started.  If the process was started less than 24 hours ago, the output format is "HH:MM:SS", else it is "  Mmm dd" (where Mmm is a
+#                             three-letter month name).  See also lstart, bsdstart, start_time, and stime.
+#
+#       stat        STAT      multi-character process state.  See section PROCESS STATE CODES for the different values meaning.  See also s and state if you just want the first
+#                             character displayed.
+#
+#       state       S         see s. (alias s).
+#
+#       sz          SZ        size in physical pages of the core image of the process.  This includes text, data, and stack space.  Device mappings are currently excluded; this is
+#                             subject to change.  See vsz and rss.
+#
+#       tgid        TGID      a number representing the thread group to which a task belongs (alias pid).  It is the process ID of the thread group leader.
+#
+#       thcount     THCNT     see nlwp.  (alias nlwp).  number of kernel threads owned by the process.
+#
+#       tid         TID       the unique number representing a dispatchable entity (alias lwp, spid).  This value may also appear as: a process ID (pid); a process group ID (pgrp);
+#                             a session ID for the session leader (sid); a thread group ID for the thread group leader (tgid); and a tty process group ID for the process group
+#                             leader (tpgid).
+#
+#       time        TIME      cumulative CPU time, "[DD-]HH:MM:SS" format.  (alias cputime).
+#
+#       tpgid       TPGID     ID of the foreground process group on the tty (terminal) that the process is connected to, or -1 if the process is not connected to a tty.
+#
+#       tty         TT        controlling tty (terminal).  (alias tname, tt).
+#
+#       uid         UID       see euid.  (alias euid).
+#
+#       unit        UNIT      displays unit which a process belongs to, if systemd support has been included.
+#
+#       user        USER      see euser.  (alias euser, uname).
+#
+#
+#       vsize       VSZ       see vsz.  (alias vsz).
+#
+#       vsz         VSZ       virtual memory size of the process in KiB (1024-byte units).  Device mappings are currently excluded; this is subject to change.  (alias vsize).
+#
 #---------------------------------------------------------------------------------------------------
 
 
