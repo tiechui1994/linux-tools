@@ -7,9 +7,9 @@
 #----------------------------------------------------
 
 
-version=5.7.23
+version=5.7.24
 workdir=$(pwd)
-installdir=/opt/local/mysql
+installdir=/opt/share/local/mysql
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
@@ -29,31 +29,30 @@ check_param() {
 }
 
 download_mysql() {
-    # 下载源码包
-    url="https://cdn.mysql.com/Downloads/MySQL-5.7/mysql-$version.tar.gz"
-    axel -n 100 ${url} -o mysql-${version}.tar.gz
-
-    # 解压源文件
     mysql=${workdir}/mysql-${version}
-    if [[ -e ${mysql} ]]; then
-       rm -rf ${mysql}
+
+    if [[ ! -e ${mysql} ]]; then
+        url="http://cdn.mysql.com/Downloads/MySQL-5.7/mysql-$version.tar.gz"
+        axel -n 100 ${url} -o mysql-${version}.tar.gz
+
+        mkdir ${mysql} && \
+        tar -zvxf mysql-${version}.tar.gz -C ${mysql} --strip-components 1
     fi
 
-    mkdir ${mysql} && \
-    tar -zvxf mysql-${version}.tar.gz -C ${mysql} --strip-components 1
 
-    # 下载boost依赖库文件
-    boost="https://nchc.dl.sourceforge.net/project/boost/boost/1.59.0/boost_1_59_0.tar.gz"
-    mkdir -p ${mysql}/boost && \
-    axel -n 100 ${boost} -o ${mysql}/boost/
+     if [[ ! -e ${mysql}/boost ]]; then
+        boost="https://nchc.dl.sourceforge.net/project/boost/boost/1.59.0/boost_1_59_0.tar.gz"
+        mkdir -p ${mysql}/boost && \
+        axel -n 100 ${boost} -o ${mysql}/boost/
+     fi
 }
 
 install_depency(){
-    # 安装依赖包
+    # install depend
     apt-get update && \
     apt-get install cmake build-essential libncurses5-dev bison -y
 
-    # 增加用户
+    # add new user
     if [[ -z "$(cat /etc/group | grep -E '^mysql:')" ]]; then
        groupadd -r mysql
     fi
@@ -62,7 +61,7 @@ install_depency(){
         useradd -r -g mysql -s /sbin/nologin mysql
     fi
 
-    # 创建文件
+    # create mysql dir
     rm -rf ${installdir} && \
     mkdir -p ${installdir}/mysql && \
     mkdir -p ${installdir}/data && \
@@ -72,14 +71,14 @@ install_depency(){
 }
 
 make_install() {
-    # cmake编译
+    # cmake
     cd ${workdir}/mysql-${version} && \
     cmake . \
     -DCMAKE_INSTALL_PREFIX=${installdir}/mysql \
     -DMYSQL_DATADIR=${installdir}/data \
     -DSYSCONFDIR=${installdir}/conf \
     -DDOWNLOAD_BOOST=1 \
-    -DWITH_BOOST=${workdir}/boost \
+    -DWITH_BOOST=${workdir}/mysql-${version}/boost \
     -DWITH_INNOBASE_STORAGE_ENGINE=1 \
     -DWITH_PARTITION_STORAGE_ENGINE=1 \
     -DWITH_FEDERATED_STORAGE_ENGINE=1 \
@@ -90,18 +89,17 @@ make_install() {
     -DDEFAULT_CHARSET=utf8 \
     -DDEFAULT_COLLATION=utf8_general_ci
 
-    # 安装
+    # install
     cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
     make -j${cpu} && make install
 }
 
 add_config() {
-    # 创建配置文件my.cnf(确保文件没有被创建)
+    # create config file my.cnf
     if [[ -e ${installdir}/conf/my.cnf ]]; then
        rm -rf ${installdir}/conf/my.cnf
     fi
 
-    # 写入配置内容
     cat > ${installdir}/conf/my.cnf << EOF
 [client]
     port=3306
@@ -148,7 +146,7 @@ EOF
 }
 
 init_database() {
-    # 初始化数据(需要清空logs和data目录下的所有的内容)
+    # clear logs and data
     rm -rf ${installdir}/logs/* && \
     rm -rf ${installdir}/data/* && \
     ${installdir}/mysql/bin/mysqld \
@@ -157,7 +155,7 @@ init_database() {
     --basedir=${installdir}/mysql \
     --datadir=${installdir}/data
 
-    # 数据库初始化检查
+    # check  logs/mysql.err, if has error, need to resolve by self
     if cat ${installdir}/logs/mysql.err | grep -E -i '\[error\]'; then
         echo
         echo "ERROR: Mysql初始化出现问题, 请查看详情文件${installdir}/logs/mysql.err自己解决"
@@ -165,7 +163,7 @@ init_database() {
         exit
     fi
 
-    # 启动服务
+    # start mysqld service
     service mysqld start
     if [[ -z "$(service mysqld status |grep -o 'Active: active (running)')" ]]; then
         echo
@@ -174,17 +172,17 @@ init_database() {
         exit
     fi
 
-    # 获取数据库临时密码, 并进行展示
+    # check password
     password="$(cat ${installdir}/logs/mysql.err | grep 'temporary password' | cut -d ' ' -f11)"
 
     echo
-    echo "当前密码是: "${password}
+    echo "当前密码是: $password"
     echo "请使用下面的命令更新数据库密码:"
+    echo "mysql -u root --password=$password"
     echo "SET PASSWORD = PASSWORD('your new password');"
     echo "ALTER user 'root'@'localhost' PASSWORD EXPIRE NEVER;"
     echo "FLUSH PRIVILEGES;"
     echo
-
     echo "INFO: Mysql install successfully"
     echo
 }

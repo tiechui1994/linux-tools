@@ -9,7 +9,7 @@
 
 version=1.14.0
 workdir=$(pwd)
-installdir=/opt/local/nginx
+installdir=/opt/share/local/nginx
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
@@ -25,60 +25,59 @@ check_user() {
 }
 
 insatll_depend() {
-    # 安装依赖的包
     apt-get update && \
     apt-get install build-essential zlib1g-dev openssl libssl-dev libpcre3 libpcre3-dev libxml2 \
     libxml2-dev libxslt-dev perl libperl-dev -y
 }
 
 download_nginx() {
-    # 安装下载工具
     if ! command_exists curl; then
         apt-get update && apt-get install axel -y
     fi
 
-    # 获取源代码
-    echo http://nginx.org/download/nginx-${version}.tar.gz
-    axel -n 20 -o nginx-${version}.tar.gz http://nginx.org/download/nginx-${version}.tar.gz
+    if [[ ! -e nginx-${version} ]]; then
+        echo http://nginx.org/download/nginx-${version}.tar.gz
+        axel -n 20 -o nginx-${version}.tar.gz http://nginx.org/download/nginx-${version}.tar.gz
 
-    # 解压文件
-    tar -zvxf nginx-${version}.tar.gz && cd nginx-${version}
+        tar -zvxf nginx-${version}.tar.gz && cd nginx-${version}
+    fi
 }
 
 download_openssl() {
-    prefix="https://ftp.openssl.org/source/old"
-    openssl="$(openssl version |cut -d " " -f2)"
-    url=$(printf "%s/%s/openssl-%s.tar.gz" ${prefix} ${openssl:0:${#openssl}-1} ${openssl})
+    if [[ ! -e openssl ]]; then
+        prefix="https://ftp.openssl.org/source/old"
+        openssl="$(openssl version |cut -d " " -f2)"
+        url=$(printf "%s/%s/openssl-%s.tar.gz" ${prefix} ${openssl:0:${#openssl}-1} ${openssl})
 
-    axel -n 10 -o openssl.tar.gz ${url}
+        axel -n 10 -o openssl.tar.gz ${url}
 
-    # 解压文件
-    rm -rf openssl && mkdir openssl
-    tar -zvxf openssl.tar.gz -C openssl --strip-components 1
+        rm -rf openssl && mkdir openssl
+        tar -zvxf openssl.tar.gz -C openssl --strip-components 1
+    fi
 }
 
 download_pcre() {
-    url="https://jaist.dl.sourceforge.net/project/pcre/pcre/8.38/pcre-8.38.tar.gz"
+    if [[ ! -e zlib ]]; then
+        url="https://jaist.dl.sourceforge.net/project/pcre/pcre/8.38/pcre-8.38.tar.gz"
+        axel -n 10 -o pcre.tar.gz ${url}
 
-     axel -n 10 -o pcre.tar.gz ${url}
-
-    # 解压文件
-    rm -rf pcre && mkdir pcre
-    tar -zvxf pcre.tar.gz -C pcre --strip-components 1
+        rm -rf pcre && mkdir pcre
+        tar -zvxf pcre.tar.gz -C pcre --strip-components 1
+    fi
 }
 
 download_zlib() {
-    url="http://www.zlib.net/fossils/zlib-1.2.11.tar.gz"
+    if [[ ! -e zlib ]]; then
+        url="http://www.zlib.net/fossils/zlib-1.2.11.tar.gz"
+        axel -n 10 -o zlib.tar.gz ${url}
 
-    axel -n 10 -o zlib.tar.gz ${url}
-
-    # 解压文件
-    rm -rf zlib && mkdir zlib
-    tar -zvxf zlib.tar.gz -C zlib --strip-components 1
+        rm -rf zlib && mkdir zlib
+        tar -zvxf zlib.tar.gz -C zlib --strip-components 1
+    fi
 }
 
 build_sorce_code() {
-    # 创建目录
+    # create nginx dir
     rm -rf  ${installdir} && \
     mkdir -p ${installdir} && \
     mkdir -p ${installdir}/tmp/client && \
@@ -87,7 +86,7 @@ build_sorce_code() {
     mkdir -p ${installdir}/tmp/uwsgi && \
     mkdir -p ${installdir}/tmp/scgi
 
-    # 创建用户组并修改权限
+    # create user
     if [[ -z "$(cat /etc/group | grep -E '^www:')" ]]; then
         groupadd -r www
     fi
@@ -130,8 +129,9 @@ build_sorce_code() {
     #   ngx_cpp_test_module
     #
     ##
-    # 编译
-    ${workdir}/nginx-${version}/configure \
+    # build and install
+    cd ${workdir}/nginx-${version} && \
+    ./configure \
     --user=www  \
     --group=www \
     --prefix=${installdir} \
@@ -166,7 +166,6 @@ build_sorce_code() {
     --http-uwsgi-temp-path=${installdir}/tmp/uwsgi \
     --http-scgi-temp-path=${installdir}/tmp/scgi
 
-    # 安装
     cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
     make -j${cpu} && make install
 }
@@ -177,13 +176,13 @@ add_config_file() {
 
     # 添加nginx.conf
     mkdir -p ${installdir}/conf/conf.d
-    cat > ${installdir}/conf/nginx.conf <<-'EOF'
+    cat > ${installdir}/conf/nginx.conf <<- EOF
 user  www;
 worker_processes  1;
 
-error_log  /opt/local/nginx/logs/error.log;
-error_log  /opt/local/nginx/logs/error.log  notice;
-pid        /opt/local/nginx/logs/nginx.pid;
+error_log  ${installdir}/logs/error.log;
+error_log  ${installdir}/logs/error.log  notice;
+pid        ${installdir}/logs/nginx.pid;
 
 events {
      worker_connections  1024;
@@ -193,11 +192,11 @@ events {
 http {
     include       mime.types;
     default_type  application/octet-stream;
-    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+    log_format  main   '$remote_addr - $remote_user [$time_local] "$request" '
                        '$status $body_bytes_sent "$http_referer" '
                        '"$http_user_agent" "$http_x_forwarded_for"';
 
-    access_log  /opt/local/nginx/logs/access.log  main;
+    access_log  ${installdir}/logs/access.log  main;
     sendfile        on;
     tcp_nopush      on;
     keepalive_timeout  65;
@@ -290,9 +289,9 @@ EOF
 ### END INIT INFO
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-DAEMON=/opt/local/nginx/sbin/nginx
-CONF=/opt/local/nginx/conf/nginx.conf
-PID=/opt/local/nginx/logs/nginx.pid
+DAEMON=/opt/share/local/nginx/sbin/nginx
+CONF=/opt/share/local/nginx/conf/nginx.conf
+PID=/opt/share/local/nginx/logs/nginx.pid
 NAME=nginx
 DESC=nginx
 
@@ -521,7 +520,7 @@ do_install(){
 
     build_sorce_code
     add_config_file
-    clean_file
+#    clean_file
 }
 
 do_install

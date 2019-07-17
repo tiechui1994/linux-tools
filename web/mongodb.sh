@@ -8,7 +8,7 @@
 
 version=3.6.9
 workdir=$(pwd)
-installdir=/opt/local/mongodb
+installdir=/opt/share/local/mongodb
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
@@ -136,9 +136,9 @@ EOF
 ### END INIT INFO
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-DAEMON=/opt/local/mongodb/bin/mongod
-CONF=/opt/local/mongodb/conf/mongodb.conf
-PID=/opt/local/mongodb/logs/mongodb.pid
+DAEMON=/opt/share/local/mongodb/bin/mongod
+CONF=/opt/share/local/mongodb/conf/mongodb.conf
+PID=/opt/share/local/mongodb/logs/mongodb.pid
 NAME=mongod
 DESC=mongod
 

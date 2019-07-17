@@ -12,7 +12,7 @@ installdir=/opt/local/dns
 
 cmd_exists() {
   cmd="$1"
-  if [ -z "$cmd" ] ; then
+  if [[ -z "$cmd" ]] ; then
     echo "Usage: cmd_exists cmd"
     return 1
   fi
