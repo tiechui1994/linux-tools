@@ -46,6 +46,15 @@
 # privilege_level:
 #   { * | *.* | db_name.* | db_name.tb_name | tb_name | db_name_routine_name }
 #
+# user:
+#   格式: 'user_name'@'host_name'
+#   a) 'user_name' <==> 'user_name'@'%'
+#   b) user_name是区分大小写的, host_name是不区分大小写的
+#   c) user_name是非空格值, 如果user_name是空字符串, 则与任何用户名匹配. 如果user_name是空格值, 则该账号是匿名用户.
+#   要在SQL语句当中指定匿名用户, 请使用带引号的空格用户名, 例如: ''@'localhost'
+#   d) user_name 和 host_name可以采用多种形式, 并允许使用通配符.
+#      host_name使用子网掩码, 格式是 host_ip/netmask, 其中host_ip 是网络地址, 例如 '192.168.10.0/255.255.255.0'
+#
 # auth_option:
 #   { IDENTIFIED BY 'auth_string'
 #       | IDENTIFIED WITH auth_plugin
