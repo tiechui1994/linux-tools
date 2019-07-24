@@ -14,7 +14,7 @@
 #       [alter_specification, alter_specification ...]
 #
 #
-# alter_specification:
+#   alter_specification:
 #       table_options
 #
 #       ADD [COLUMN] colnum column_define [FIRST | AFTER column] // 添加一列
