@@ -7,7 +7,7 @@
 #----------------------------------------------------
 
 
-version=5.7.24
+version=5.7.25
 workdir=$(pwd)
 installdir=/opt/share/local/mysql
 
@@ -32,8 +32,8 @@ download_mysql() {
     mysql=${workdir}/mysql-${version}
 
     if [[ ! -e ${mysql} ]]; then
-        url="http://cdn.mysql.com/Downloads/MySQL-5.7/mysql-$version.tar.gz"
-        axel -n 100 ${url} -o mysql-${version}.tar.gz
+        url="https://mirrors.cloud.tencent.com/mysql/downloads/MySQL-5.7/mysql-$version.tar.gz"
+        curl -o mysql-${version}.tar.gz ${url}
 
         mkdir ${mysql} && \
         tar -zvxf mysql-${version}.tar.gz -C ${mysql} --strip-components 1
