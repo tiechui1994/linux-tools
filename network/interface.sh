@@ -92,6 +92,7 @@
 #       pointopoint addr
 #       harddress hardaddr          MAC地址或"random"
 #       mtu size                    MTU(最大传输单元), 一般是1500
+#   注: 需要配置dns即/etc/resolv.conf, 才可以正常联网.
 #
 #   manual Method: 此方法可用于定义默认情况下不进行任何配置的接口. 可以通过up和down命令或/etc/network/if-*.d脚本
 #   手动配置此类接口.
