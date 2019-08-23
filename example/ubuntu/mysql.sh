@@ -7,11 +7,23 @@
 #----------------------------------------------------
 
 release=""
-version="5.7.24"
+version="5.7.26"
+
+loge() {
+    echo -e "\e[1;31mERROR|$@\e[0m"
+}
+
+logi() {
+    echo -e "\e[1;32mINFO|$@\e[0m"
+}
+
+logw() {
+     echo -e "\e[1;33mWARN|$@\e[0m"
+}
 
 check_user() {
     if [[ $(whoami) != "root" ]]; then
-        echo "Please use root execute script"
+        loge "Please use root execute script"
         exit -1
     fi
 }
@@ -26,19 +38,21 @@ check_os_version() {
         release="$(cat /etc/issue.net|cut -d ' ' -f2|grep -E -o '1[0-9]{1}.[0-9]{2}')"
     fi
 
-    echo "Current Ubuntu Version: $version"
+    logi "Current Ubuntu Version: $release"
 }
 
 check_mysql() {
     cmd="$(command -v 'mysqld')"
     if [[ $? -eq 0 ]]; then
-        echo "MySQL server exists. Version is: $(${cmd} --verbose --version)"
+        info=$(${cmd} --verbose --version)
+        logw "MySQL server exists. Version is: $info"
         exit -2
     fi
 }
 
 download_deb() {
-    echo "Start download deb files ..."
+    logi "Start download deb files ..."
+
     url="https://mirrors.cloud.tencent.com/mysql/apt/ubuntu/pool/mysql-5.7/m/mysql-community"
     files=([0]="mysql-community-server_${version}-1ubuntu${release}_amd64.deb"
            [1]="mysql-community-client_${version}-1ubuntu${release}_amd64.deb"
@@ -46,7 +60,7 @@ download_deb() {
            [3]="mysql-client_${version}-1ubuntu${release}_amd64.deb")
 
     for i in ${files[@]}; do
-        echo "url: $url/$i"
+        logi "url: $url/$i"
         if [[ -e "/usr/bin/wget" ]]; then
             wget "$url/$i" > /dev/null 2>&1
             continue
@@ -58,25 +72,25 @@ download_deb() {
         fi
     done
 
-    echo "End download rpm files ..."
+    logi "End download deb files ..."
 }
 
 install_deb() {
-    echo "Install deb ..."
+    logi "Install deb ..."
 
     apt-get update && \
     apt-get install -y libaio1 libmecab2
 
-    dpkg -i mysql-*.deb
+    dpkg -a -i mysql-*.deb
     if [[ $? -eq 0 ]]; then
         count=$(dpkg -l|grep mysql|grep ${version}-1ubuntu${release}|wc -l)
         if [[ ${count} -eq 4 ]]; then
-            echo "Install MySQL-$version Success !!!"
+            logi "Install MySQL-$version Success !!!"
             return 0
         fi
     fi
 
-    echo "Install MySQL-$version Failed, Please Check Reason."
+    loge "Install MySQL-$version Failed, Please Check Reason."
     exit -3
 }
 
@@ -104,26 +118,26 @@ init_mysql() {
         old_pwd=$(cat /var/log/mysql/error.log | grep 'temporary password' | cut -d ' ' -f11)
         new_pwd=$(_input_password)
         cat > /tmp/update.sql <<- EOF
-        SET global validate_password_policy=LOW;
-        SET global validate_password_length=6;
         ALTER USER 'root'@'localhost' IDENTIFIED BY "${new_pwd}";
-        SET global validate_password_policy=MEDIUM;
-        SET global validate_password_length=8;
         COMMIT;
 EOF
-        mysql --connect-expired-password -h localhost -u root -p${old_pwd} mysql </tmp/update.sql > /dev/null 2>&1
+        if [[ ${old_pwd} ]]; then
+            mysql --connect-expired-password -h localhost -u root -p${old_pwd} mysql </tmp/update.sql > /dev/null 2>&1
+        else
+            mysql -h localhost -u root mysql </tmp/update.sql > /dev/null 2>&1
+        fi
         if [[ $? -eq 0 ]]; then
             rm -rf /tmp/update.sql
-            echo "Update Password Success"
+            logi "Update Password Success"
             return
         else
             rm -rf /tmp/update.sql
-            echo "Update Password Failed. Please Check Reason"
+            loge "Update Password Failed. Please Check Reason"
             exit -4
         fi
     fi
 
-    echo "Start MySQL Failed, Please Check Reason."
+    loge "Start MySQL Failed, Please Check Reason."
     exit -5
 }
 
@@ -131,7 +145,6 @@ install(){
     check_user
     check_os_version
     check_mysql
-    init_mysql
     download_deb
     install_deb
     init_mysql

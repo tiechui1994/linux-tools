@@ -9,23 +9,36 @@
 
 jdk="8u66"
 
+loge() {
+    echo -e "\e[1;31mERROR|$@\e[0m"
+}
+
+logi() {
+    echo -e "\e[1;32mINFO|$@\e[0m"
+}
+
+logw() {
+     echo -e "\e[1;33mWARN|$@\e[0m"
+}
+
 check_user() {
     if [[ $(whoami) != "root" ]]; then
-        echo "Please use root execute script"
+        loge "Please use root execute script"
         exit -1
     fi
 }
 
 check_jdk() {
     if [[ ${JAVA_HOME} != "" ]]; then
-        echo "Java has existed. Info is:"
-        ${JAVA_HOME}/bin/java -version
+        logw "Java has existed. Info is:"
+        info=$(${JAVA_HOME}/bin/java -version)
+        logw "$info"
         exit -2
     fi
 }
 
 download_jdk() {
-    echo "Start download jdk files ..."
+    logi "Start download jdk files ..."
     url="http://monalisa.cern.ch/MONALISA/download/java"
 
     if [[ -e "/usr/bin/wget" ]]; then
@@ -40,7 +53,7 @@ download_jdk() {
 }
 
 install_jdk() {
-    echo "Start install jdk ..."
+    logi "Start install jdk ..."
 
     cmd="$(command -v tar)"
     if [[ $? -ne 0 ]]; then
@@ -61,8 +74,9 @@ install_jdk() {
 
     source /etc/bash.bashrc
 
-    echo "JAVA VERSION is: "
-    ${JAVA_HOME}/bin/java -version
+    logi "JAVA VERSION is: "
+    info=$(${JAVA_HOME}/bin/java -version)
+    logi "$info"
 }
 
 install() {
