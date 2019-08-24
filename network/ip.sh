@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 
 #---------------------------------------------------------------------------------------------------
@@ -60,6 +60,35 @@
 #    xfrm      管理IPSec策略
 #
 #    tcp_metrics  TCP链接策略
+#
+#---------------------------------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------------------------------
+# ip address {add|change|replace} IFADDR dev IFNAME [ LIFETIME ] [ CONFFLAG-LIST ]
+# ip address del IFADDR dev IFNAME [mngtmpaddr]
+# ip address {show|save|flush} [ dev IFNAME ] [ scope SCOPE-ID ]
+#                              [ to PREFIX ] [ FLAG-LIST ] [ label LABEL ] [up]
+# ip address {showdump|restore}
+#
+# IFADDR := PREFIX | ADDR peer PREFIX
+#          [ broadcast ADDR ] [ anycast ADDR ]
+#          [ label IFNAME ] [ scope SCOPE-ID ]
+#
+# SCOPE-ID := [ host | link | global | NUMBER ]
+#
+# FLAG-LIST := [ FLAG-LIST ] FLAG
+#
+# FLAG  := [ permanent | dynamic | secondary | primary |
+#           [-]tentative | [-]deprecated | [-]dadfailed | temporary |
+#           CONFFLAG-LIST ]
+#
+# CONFFLAG-LIST := [ CONFFLAG-LIST ] CONFFLAG
+#
+# CONFFLAG  := [ home | nodad | mngtmpaddr | noprefixroute | autojoin ]
+#
+# LIFETIME := [ valid_lft LFT ] [ preferred_lft LFT ]
+#
+# LFT := forever | SECONDS
 #
 #---------------------------------------------------------------------------------------------------
 
