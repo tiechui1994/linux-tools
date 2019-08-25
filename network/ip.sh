@@ -35,14 +35,14 @@
 #    -c, -collor 颜色控制
 #
 # OBJECT:
-#    link       网络设备
-#    address    设备ip地址
+#    link       网络设备(network device)
+#    address    设备ip地址(protocol (IP or IPv6) address on a device)
 #    addrlabel  协议地址选择的标签配置
-#    route      路由表条目
+#    route      路由表条目(routing table entry)
 #    rule       路由策略数据库中的规则
 #    token      网卡设置
 #
-#    netns      管理网络命名空间
+#    netns      管理网络命名空间(manage network namespaces)
 #    netconf    管理网络配置
 #
 #    neighbor   管理ARP缓存条目
@@ -89,6 +89,75 @@
 # LIFETIME := [ valid_lft LFT ] [ preferred_lft LFT ]
 #
 # LFT := forever | SECONDS
+#
+#---------------------------------------------------------------------------------------------------
+
+#---------------------------------------------------------------------------------------------------
+# 添加virtual link
+# ip link add [link DEV] [ name ] NAME
+#             [ txqueuelen PACKETS ] # 传输队列的长度
+#             [ address LLADDR ]
+#             [ broadcast LLADDR ]
+#             [ mtu MTU ]
+#             [index IDX ] # 索引数
+#             [ numtxqueues QUEUE_COUNT ] [ numrxqueues QUEUE_COUNT ] #传输队列数和接收队列数
+#             type TYPE [ ARGS ]
+#
+# ip link delete { DEVICE | dev DEVICE | group DEVGROUP } type TYPE [ ARGS ]
+#
+# ip link set { DEVICE | dev DEVICE | group DEVGROUP } [ { up | down } ]
+#              [ arp { on | off } ]
+#              [ dynamic { on | off } ]
+#              [ multicast { on | off } ]
+#              [ allmulticast { on | off } ]
+#              [ promisc { on | off } ]
+#              [ trailers { on | off } ]
+#              [ txqueuelen PACKETS ]
+#              [ name NEWNAME ]
+#              [ address LLADDR ]
+#              [ broadcast LLADDR ]
+#              [ mtu MTU ]
+#              [ netns PID ]
+#              [ netns NAME ]
+#              [ link-netnsid ID ]
+#              [ alias NAME ]
+#              [ vf NiiUM [ mac LLADDR ]
+#                   [ vlan VLANID [ qos VLAN-QOS ] ]
+#                   [ rate TXRATE ] ]
+#                   [ spoofchk { on | off} ] ]
+#                   [ query_rss { on | off} ] ]
+#                   [ state { auto | enable | disable} ] ]
+#              [ master DEVICE ]
+#              [ nomaster ]
+#              [ addrgenmode { eui64 | none } ]
+#              [ protodown { on | off } ]
+#
+# ip link show [ DEVICE | group GROUP ] [up] [master DEV] [type TYPE]
+#
+# ip link help [ TYPE ]
+#
+# TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | macvtap |
+#          bridge | bond | ipoib | ip6tnl | ipip | sit | vxlan |
+#          gre | gretap | ip6gre | ip6gretap | vti | nlmon |
+#          bond_slave | ipvlan | geneve | bridge_slave | vrf }
+#
+# TYPE 介绍
+#   bridge - Ethernet Bridge device(网桥)
+#   bond - Bonding device can - Controller Area Network interface
+#   dummy - Dummy network interface(虚拟网络接口)
+#   macvlan - Virtual interface base on link layer address (MAC)(基于链路层地址(MAC)的虚拟接口)
+#   vcan - Virtual Controller Area Network interface(虚拟控制器区域网络接口)
+#   veth - Virtual ethernet interface(虚拟以太网接口)
+#   vlan - 802.1q tagged virtual LAN interface
+#   vxlan - Virtual eXtended LAN
+#   ipip - Virtual tunnel interface IPv4 over IPv4(虚拟隧道接口IPv4 over IPv4)
+#   sit - Virtual tunnel interface IPv6 over IPv4(虚拟隧道接口IPv6 over IPv4)
+#   gre - Virtual tunnel interface GRE over IPv4(虚拟隧道接口GRE over IPv4)
+#   vti - Virtual tunnel interface(虚拟隧道接口)
+#   nlmon - Netlink monitoring device(Netlink监控设备)
+#
+#
+#
 #
 #---------------------------------------------------------------------------------------------------
 
