@@ -27,7 +27,7 @@
 #    L 有pages在内存中locked. 用于实时或自定义IO
 #
 #    s 进程领导者, 其有子进程
-#    I 多线程(使用CLONE_THREAD)
+#    l 多线程(使用CLONE_THREAD)
 #    + 位于前台进程组
 #
 #   CODE        NORMAL   HEADER

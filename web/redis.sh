@@ -8,7 +8,7 @@
 
 version=4.0.0
 workdir=$(pwd)
-installdir=/opt/local/redis
+installdir=/opt/share/local/redis
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
@@ -60,9 +60,9 @@ redis_service() {
     sed -i \
     -e 's|^daemonize.*|daemonize yes|g' \
     -e 's|^supervised.*|supervised auto|g' \
-    -e 's|^pidfile.*|pidfile /opt/local/redis/data/redis_6379.pid|g' \
-    -e 's|^logfile.*|logfile /opt/local/redis/logs/redis.log|g' \
-    -e 's|^dir.*|dir /opt/local/redis/data/|g' \
+    -e 's|^pidfile.*|pidfile /opt/share/local/redis/data/redis_6379.pid|g' \
+    -e 's|^logfile.*|logfile /opt/share/local/redis/logs/redis.log|g' \
+    -e 's|^dir.*|dir /opt/share/local/redis/data/|g' \
     ${installdir}/conf/redis.conf
 
     # 添加服务文件
@@ -83,8 +83,8 @@ REDISPORT=6379
 EXEC=/usr/local/bin/redis-server
 CLIEXEC=/usr/local/bin/redis-cli
 
-PIDFILE=/opt/local/redis/data/redis_${REDISPORT}.pid
-CONF=/opt/local/redis/conf/redis.conf
+PIDFILE=/opt/share/local/redis/data/redis_${REDISPORT}.pid
+CONF=/opt/share/local/redis/conf/redis.conf
 
 case "$1" in
     start)
