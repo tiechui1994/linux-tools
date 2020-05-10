@@ -276,22 +276,24 @@ EOF
 
     # 添加启动文件
     cat > /etc/init.d/nginx <<-'EOF'
-#!/bin/sh
+#!/bin/bash
 
 ### BEGIN INIT INFO
 # Provides:   nginx
-# Required-Start:    $local_fs $remote_fs $syslog $network ${NAME}d
-# Required-Stop:     $local_fs $remote_fs $syslog $network ${NAME}d
+# Required-Start:    $local_fs $remote_fs $syslog $network
+# Required-Stop:     $local_fs $remote_fs $syslog $network
 # Default-Start:     2 3 4
 # Default-Stop:      0 1 5 6
 # Short-Description: starts the nginx web server
 # Description:       starts nginx using start-stop-daemon
 ### END INIT INFO
 
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 DAEMON=/opt/share/local/nginx/sbin/nginx
 CONF=/opt/share/local/nginx/conf/nginx.conf
 PID=/opt/share/local/nginx/logs/nginx.pid
+DAEMON=/opt/local/nginx/sbin/nginx
+CONF=/opt/local/nginx/conf/nginx.conf
+PID=/opt/local/nginx/logs/nginx.pid
 NAME=nginx
 DESC=nginx
 
@@ -482,8 +484,6 @@ case "$1" in
         exit 3
         ;;
 esac
-
-:
 EOF
 
     # 权限

@@ -71,8 +71,8 @@ redis_service() {
 
 ### BEGIN INIT INFO
 # Provides:          redis
-# Required-Start:    $local_fs $remote_fs $syslog $network ${NAME}d
-# Required-Stop:     $local_fs $remote_fs $syslog $network ${NAME}d
+# Required-Start:    $local_fs $remote_fs $syslog $network
+# Required-Stop:     $local_fs $remote_fs $syslog $network
 # Default-Start:     2 3 4
 # Default-Stop:      0 1 5 6
 # Short-Description: redis service
@@ -86,23 +86,25 @@ CLIEXEC=/usr/local/bin/redis-cli
 PIDFILE=/opt/share/local/redis/data/redis_${REDISPORT}.pid
 CONF=/opt/share/local/redis/conf/redis.conf
 
+. /lib/lsb/init-functions
+
 case "$1" in
     start)
         if [[ -f ${PIDFILE} ]]
         then
-                echo "${PIDFILE} exists, process is already running or crashed"
+                log_failure_msg "${PIDFILE} exists, process is already running or crashed"
         else
-                echo "Starting Redis server..."
+                log_begin_msg "Starting Redis server..."
                 $EXEC ${CONF}
         fi
         ;;
     stop)
         if [[ ! -f ${PIDFILE} ]]
         then
-                echo "${PIDFILE} does not exist, process is not running"
+                log_failure_msg "${PIDFILE} does not exist, process is not running"
         else
                 PID=$(cat ${PIDFILE})
-                echo "Stopping ..."
+                log_begin_msg "Stopping ..."
 
                 ${CLIEXEC} -p ${REDISPORT} shutdown
                 if [[ -e ${PIDFILE} ]];then
@@ -111,14 +113,14 @@ case "$1" in
 
                 while [[ -x /proc/${PID} ]]
                 do
-                    echo "Waiting for Redis to shutdown ..."
+                    log_begin_msg "Waiting for Redis to shutdown ..."
                     sleep 1
                 done
-                echo "Redis stopped"
+                log_success_msg "Redis stopped"
         fi
         ;;
     *)
-        echo "Please use start or stop as first argument"
+        log_failure_msg "Please use start or stop as first argument"
         ;;
 esac
 EOF

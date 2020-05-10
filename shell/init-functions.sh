@@ -1,6 +1,4 @@
-##
-# 系统自带的服务, 位置: /lib/lsb/init-functions
-##
+#!/usr/bin/env bash
 
 start_daemon () {
     local force nice pidfile exec args OPTIND
