@@ -7,9 +7,9 @@
 #----------------------------------------------------
 
 
-version=5.7.25
+version=5.7.28
 workdir=$(pwd)
-installdir=/opt/share/local/mysql
+installdir=/opt/local/mysql
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
@@ -50,7 +50,7 @@ download_mysql() {
 install_depency(){
     # install depend
     apt-get update && \
-    apt-get install cmake build-essential libncurses5-dev bison -y
+    apt-get install cmake build-essential libncurses5-dev bison libssl-dev -y
 
     # add new user
     if [[ -z "$(cat /etc/group | grep -E '^mysql:')" ]]; then
@@ -202,3 +202,4 @@ do_install() {
 }
 
 do_install
+
