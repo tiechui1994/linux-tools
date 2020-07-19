@@ -11,6 +11,13 @@ version=1.14.0
 workdir=$(pwd)
 installdir=/opt/share/local/nginx
 
+SUCCESS=0
+INVALID_USER=1
+DOWNLOAD_FAIL=2
+DECOMPRESS_FAIL=3
+BUILD_FAIL=4
+INSTALL_FAIL=5
+
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
 }
@@ -20,8 +27,10 @@ check_user() {
         echo
         echo "ERROR: Please use root privileges to execute"
         echo
-        exit
+        return ${INVALID_USER}
     fi
+
+    return ${SUCCESS}
 }
 
 insatll_depend() {
@@ -31,49 +40,112 @@ insatll_depend() {
 }
 
 download_nginx() {
+    if [[ -d nginx-${version} ]]; then
+        echo "nginx-${version} has exist!!"
+        return ${SUCCESS}
+    fi
+
     if ! command_exists curl; then
         apt-get update && apt-get install axel -y
     fi
 
-    if [[ ! -e nginx-${version} ]]; then
-        echo http://nginx.org/download/nginx-${version}.tar.gz
-        axel -n 20 -o nginx-${version}.tar.gz http://nginx.org/download/nginx-${version}.tar.gz
-
-        tar -zvxf nginx-${version}.tar.gz && cd nginx-${version}
+    url="http://nginx.org/download/nginx-$version.tar.gz"
+    echo "nginx source: $url"
+    axel -n 20 -o "nginx-$version.tar.gz" "$url"
+    if [[ $? -ne 0 ]]; then
+        echo "nginx source download failed"
+        rm -rf nginx-${version}*
+        return ${DOWNLOAD_FAIL}
     fi
+
+    tar -zvxf nginx-${version}.tar.gz && cd nginx-${version}
+    if [[ $? -ne 0 ]]; then
+        echo "nginx decopress failed"
+        rm -rf nginx-*
+        return ${DECOMPRESS_FAIL}
+    fi
+
+    return ${SUCCESS}
 }
 
 download_openssl() {
-    if [[ ! -e openssl ]]; then
-        prefix="https://ftp.openssl.org/source/old"
-        openssl="$(openssl version |cut -d " " -f2)"
-        url=$(printf "%s/%s/openssl-%s.tar.gz" ${prefix} ${openssl:0:${#openssl}-1} ${openssl})
-
-        axel -n 10 -o openssl.tar.gz ${url}
-
-        rm -rf openssl && mkdir openssl
-        tar -zvxf openssl.tar.gz -C openssl --strip-components 1
+    if [[ -d openssl ]]; then
+        echo "openssl has exist!!"
+        return ${SUCCESS}
     fi
+
+    prefix="https://ftp.openssl.org/source/old"
+    openssl="$(openssl version |cut -d " " -f2)"
+    url=$(printf "%s/%s/openssl-%s.tar.gz" ${prefix} ${openssl:0:${#openssl}-1} ${openssl})
+    echo "openssl url: $url"
+    axel -n 10 -o openssl.tar.gz ${url}
+    if [[ $? -ne 0 ]]; then
+        echo "openssl source download failed"
+        rm -rf openssl.tar.gz*
+        return ${DOWNLOAD_FAIL}
+    fi
+
+    rm -rf openssl && mkdir openssl
+    tar -zvxf openssl.tar.gz -C openssl --strip-components 1
+    if [[ $? -ne 0 ]]; then
+        echo "openssl decopress failed"
+        rm -rf openssl*
+        return ${DECOMPRESS_FAIL}
+    fi
+
+    return ${SUCCESS}
 }
 
 download_pcre() {
-    if [[ ! -e zlib ]]; then
-        url="https://jaist.dl.sourceforge.net/project/pcre/pcre/8.38/pcre-8.38.tar.gz"
-        axel -n 10 -o pcre.tar.gz ${url}
-
-        rm -rf pcre && mkdir pcre
-        tar -zvxf pcre.tar.gz -C pcre --strip-components 1
+    if [[ -d pcre ]]; then
+        echo "pcre has exist!!"
+        return ${SUCCESS}
     fi
+
+    url="https://jaist.dl.sourceforge.net/project/pcre/pcre/8.38/pcre-8.38.tar.gz"
+    echo "pcre url: $url"
+    axel -n 10 -o pcre.tar.gz ${url}
+    if [[ $? -ne 0 ]]; then
+        echo "pcre source download failed"
+        rm -rf pcre.tar.gz*
+        return ${DOWNLOAD_FAIL}
+    fi
+
+    rm -rf pcre && mkdir pcre
+    tar -zvxf pcre.tar.gz -C pcre --strip-components 1
+    if [[ $? -ne 0 ]]; then
+        echo "pcre decopress failed"
+        rm -rf pcre*
+        return return ${DECOMPRESS_FAIL}
+    fi
+
+    return ${SUCCESS}
 }
 
 download_zlib() {
-    if [[ ! -e zlib ]]; then
-        url="http://www.zlib.net/fossils/zlib-1.2.11.tar.gz"
-        axel -n 10 -o zlib.tar.gz ${url}
-
-        rm -rf zlib && mkdir zlib
-        tar -zvxf zlib.tar.gz -C zlib --strip-components 1
+    if [[ -d zlib ]]; then
+        echo "zlib has exist!!"
+        return ${SUCCESS}
     fi
+
+    url="http://www.zlib.net/fossils/zlib-1.2.11.tar.gz"
+    echo "zlib url: $url"
+    axel -n 10 -o zlib.tar.gz ${url}
+    if [[ $? -ne 0 ]]; then
+        echo "pcre source download failed"
+        rm -rf zlib.tar.gz.*
+        return ${DOWNLOAD_FAIL}
+    fi
+
+    rm -rf zlib && mkdir zlib
+    tar -zvxf zlib.tar.gz -C zlib --strip-components 1
+    if [[ $? -ne 0 ]]; then
+        echo "pcre decopress failed"
+        rm -rf zlib*
+        return return ${DECOMPRESS_FAIL}
+    fi
+
+    return ${SUCCESS}
 }
 
 build_sorce_code() {
@@ -166,28 +238,42 @@ build_sorce_code() {
     --http-uwsgi-temp-path=${installdir}/tmp/uwsgi \
     --http-scgi-temp-path=${installdir}/tmp/scgi
 
-    cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
-    make -j${cpu} && make install
+    cpu=$(cat /proc/cpuinfo | grep 'processor' | wc -l)
+    openssl="$(openssl version |cut -d " " -f2)"
+    if [[ ${openssl} > "1.1.0" ]]; then
+        cpu=1
+    fi
+
+    make -j ${cpu}
+    if [[ $? -ne 0 ]]; then
+        echo "build fail"
+        return ${BUILD_FAIL}
+    fi
+
+    make install
+    if [[ $? -ne 0 ]]; then
+        echo "install failed"
+        return ${INSTALL_FAIL}
+    fi
+
+    return ${SUCCESS}
 }
 
 add_config_file() {
-    # 启动
+    # set dir mode
     chown -R www:www ${installdir}
 
-    # 添加nginx.conf
-    mkdir -p ${installdir}/conf/conf.d
-    cat > ${installdir}/conf/nginx.conf <<- EOF
+    # conf template and add deafult conf file
+    read -r -d '' conf <<- 'EOF'
 user  www;
-worker_processes  1;
+worker_processes 1;
 
-error_log  ${installdir}/logs/error.log;
-error_log  ${installdir}/logs/error.log  notice;
-pid        ${installdir}/logs/nginx.pid;
+error_log  $dir/logs/error.log  notice;
+pid        $dir/logs/nginx.pid;
 
 events {
      worker_connections  1024;
 }
-
 
 http {
     include       mime.types;
@@ -196,7 +282,7 @@ http {
                        '$status $body_bytes_sent "$http_referer" '
                        '"$http_user_agent" "$http_x_forwarded_for"';
 
-    access_log  ${installdir}/logs/access.log  main;
+    access_log  $dir/logs/access.log  main;
     sendfile        on;
     tcp_nopush      on;
     keepalive_timeout  65;
@@ -271,32 +357,35 @@ http {
     # other server config
     #
     include conf.d/*.conf;
- }
+}
 EOF
+    regex='$dir'
+    repl="$installdir"
+    printf "%s" "${conf//$regex/$repl}" > ${installdir}/conf/nginx.conf
 
-    # 添加启动文件
-    cat > /etc/init.d/nginx <<-'EOF'
+    if [[ ! -d ${installdir}/conf/conf.d ]]; then
+        mkdir -p ${installdir}/conf/conf.d
+    fi
+
+    # start up template file and instace
+    read -r -d '' startup <<- 'EOF'
 #!/bin/bash
 
 ### BEGIN INIT INFO
 # Provides:   nginx
-# Required-Start:    $local_fs $remote_fs $syslog $network
-# Required-Stop:     $local_fs $remote_fs $syslog $network
-# Default-Start:     2 3 4
-# Default-Stop:      0 1 5 6
+# Required-Start:    $local_fs $syslog
+# Required-Stop:     $local_fs $syslog
+# Default-Start:     2
+# Default-Stop:      0 1 3 4 5 6
 # Short-Description: starts the nginx web server
 # Description:       starts nginx using start-stop-daemon
 ### END INIT INFO
 
-DAEMON=/opt/share/local/nginx/sbin/nginx
-CONF=/opt/share/local/nginx/conf/nginx.conf
-PID=/opt/share/local/nginx/logs/nginx.pid
-DAEMON=/opt/local/nginx/sbin/nginx
-CONF=/opt/local/nginx/conf/nginx.conf
-PID=/opt/local/nginx/logs/nginx.pid
+DAEMON=$dir/sbin/nginx
+CONF=$dir/conf/nginx.conf
+PID=$dir/logs/nginx.pid
 NAME=nginx
 DESC=nginx
-
 
 # Include nginx defaults if available
 if [ -r /etc/default/nginx ]; then
@@ -484,16 +573,19 @@ case "$1" in
         exit 3
         ;;
 esac
+
+:
 EOF
 
-    # 权限
-    chmod a+x /etc/init.d/nginx && \
-    update-rc.d nginx defaults
+    regex='$dir'
+    repl="$installdir"
+    printf "%s" "${startup//$regex/$repl}" > /etc/init.d/nginx
+    chmod a+x /etc/init.d/nginx && update-rc.d nginx defaults
 
-    # 启动
+    # start up
     service nginx start
 
-    # 测试
+    # test
     if [[ $(pgrep nginx) ]]; then
         echo
         echo "INFO: Nginx install successfully"
@@ -510,17 +602,40 @@ clean_file() {
 }
 
 do_install(){
-    check_user
-    insatll_depend
+     check_user
+     if [[ $? -ne ${SUCCESS} ]]; then
+        return
+     fi
 
-    download_openssl
-    download_pcre
-    download_zlib
-    download_nginx
+     insatll_depend
 
-    build_sorce_code
-    add_config_file
-#    clean_file
+     download_openssl
+     if [[ $? -ne ${SUCCESS} ]]; then
+        return
+     fi
+
+     download_pcre
+     if [[ $? -ne ${SUCCESS} ]]; then
+        return
+     fi
+
+     download_zlib
+     if [[ $? -ne ${SUCCESS} ]]; then
+        return
+     fi
+
+     download_nginx
+     if [[ $? -ne ${SUCCESS} ]]; then
+        return
+     fi
+
+     build_sorce_code
+     if [[ $? -ne ${SUCCESS} ]]; then
+        return
+     fi
+
+     add_config_file
+     clean_file
 }
 
 do_install
