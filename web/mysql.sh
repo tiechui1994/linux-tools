@@ -7,7 +7,7 @@
 #----------------------------------------------------
 
 
-version=5.7.28
+version=5.7.30
 workdir=$(pwd)
 installdir=/opt/local/mysql
 
@@ -80,7 +80,7 @@ download_mysql() {
 
 download_boost(){
     mysql="$workdir/mysql-$version"
-    if [[ -d ${mysql}/boost ]]; then
+    if [[ -f ${mysql}/boost/boost_1_59_0.tar.gz ]]; then
         log_info "boost exist!!"
         return ${SUCCESS}
     fi
@@ -187,7 +187,7 @@ add_config() {
     datadir=$dir/data   # 数据目录
     tmpdir=$dir/tmp     # 临时目录
     character-set-server=utf8
-    log_error=$1/logs/mysql.err
+    log_error=$dir/logs/mysql.err
 
     server-id=2
     log_bin=$dir/logs/binlog
@@ -255,7 +255,7 @@ init_database() {
     log_info
     log_info "current password is: $password"
     log_info "please use follow command and sql login and update your password:"
-    log_info "mysql -u root --password=$password"
+    log_info "mysql -u root --password='$password'"
     log_info "SET PASSWORD = PASSWORD('your new password');"
     log_info "ALTER user 'root'@'localhost' PASSWORD EXPIRE NEVER;"
     log_info "FLUSH PRIVILEGES;"
@@ -299,3 +299,5 @@ do_install() {
 
     clean_file
 }
+
+do_install
