@@ -15,8 +15,9 @@ SUCCESS=0
 INVALID_USER=1
 DOWNLOAD_FAIL=2
 DECOMPRESS_FAIL=3
-BUILD_FAIL=4
-INSTALL_FAIL=5
+CONFIGURE_FAIL=4
+BUILD_FAIL=5
+INSTALL_FAIL=6
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
@@ -237,6 +238,10 @@ build_sorce_code() {
     --http-fastcgi-temp-path=${installdir}/tmp/fcgi \
     --http-uwsgi-temp-path=${installdir}/tmp/uwsgi \
     --http-scgi-temp-path=${installdir}/tmp/scgi
+    if [[ $? -ne 0 ]]; then
+        echo "configure fail"
+        return ${CONFIGURE_FAIL}
+    fi
 
     cpu=$(cat /proc/cpuinfo | grep 'processor' | wc -l)
     openssl="$(openssl version |cut -d " " -f2)"
