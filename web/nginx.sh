@@ -7,9 +7,9 @@
 #----------------------------------------------------
 
 
-version=1.14.0
+version=1.15.8
 workdir=$(pwd)
-installdir=/opt/share/local/nginx
+installdir=/opt/local/nginx
 
 SUCCESS=0
 INVALID_USER=1
@@ -18,6 +18,56 @@ DECOMPRESS_FAIL=3
 CONFIGURE_FAIL=4
 BUILD_FAIL=5
 INSTALL_FAIL=6
+
+# log
+log_error(){
+    red="\033[97;41m"
+    reset="\033[0m"
+    echo -e "$red$@$reset"
+}
+log_warn(){
+    yellow="\033[90;43m"
+    reset="\033[0m"
+    echo -e "$yellow$@$reset"
+}
+log_info() {
+    green="\033[97;42m"
+    reset="\033[0m"
+    echo -e "$green$@$reset"
+}
+
+common_download() {
+    name=$1
+    url=$2
+    cmd=$3
+
+    if [[ -d "$name" ]]; then
+        log_info "$name has exist !!"
+        return ${SUCCESS}
+    fi
+
+    echo "$name url: $url"
+    command_exists "$cmd"
+    if [[ $? -eq 0 && "$cmd" == "axel" ]]; then
+        axel -n 10 -o "$name.tar.gz" ${url}
+    else
+        curl ${url} -o "$name.tar.gz"
+    fi
+
+    if [[ $? -ne 0 ]]; then
+        log_error "$name source download failed"
+        rm -rf ${name}.tar.gz.*
+        return ${DOWNLOAD_FAIL}
+    fi
+
+    rm -rf ${name} && mkdir ${name}
+    tar -zvxf ${name}.tar.gz -C ${name} --strip-components 1
+    if [[ $? -ne 0 ]]; then
+        log_error "$name decopress failed"
+        rm -rf ${name}*
+        return ${DECOMPRESS_FAIL}
+    fi
+}
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
@@ -41,140 +91,62 @@ insatll_depend() {
 }
 
 download_nginx() {
-    if [[ -d nginx-${version} ]]; then
-        echo "nginx-${version} has exist!!"
-        return ${SUCCESS}
-    fi
-
-    if ! command_exists curl; then
-        apt-get update && apt-get install axel -y
-    fi
-
     url="http://nginx.org/download/nginx-$version.tar.gz"
-    echo "nginx source: $url"
-    axel -n 20 -o "nginx-$version.tar.gz" "$url"
-    if [[ $? -ne 0 ]]; then
-        echo "nginx source download failed"
-        rm -rf nginx-${version}*
-        return ${DOWNLOAD_FAIL}
-    fi
-
-    tar -zvxf nginx-${version}.tar.gz && cd nginx-${version}
-    if [[ $? -ne 0 ]]; then
-        echo "nginx decopress failed"
-        rm -rf nginx-*
-        return ${DECOMPRESS_FAIL}
-    fi
-
-    return ${SUCCESS}
+    common_download "nginx-$version" "$url" axel
+    return $?
 }
 
 download_openssl() {
-    if [[ -d openssl ]]; then
-        echo "openssl has exist!!"
-        return ${SUCCESS}
-    fi
-
     prefix="https://ftp.openssl.org/source/old"
     openssl="$(openssl version |cut -d " " -f2)"
     url=$(printf "%s/%s/openssl-%s.tar.gz" ${prefix} ${openssl:0:${#openssl}-1} ${openssl})
-    echo "openssl url: $url"
-    axel -n 10 -o openssl.tar.gz ${url}
-    if [[ $? -ne 0 ]]; then
-        echo "openssl source download failed"
-        rm -rf openssl.tar.gz*
-        return ${DOWNLOAD_FAIL}
-    fi
-
-    rm -rf openssl && mkdir openssl
-    tar -zvxf openssl.tar.gz -C openssl --strip-components 1
-    if [[ $? -ne 0 ]]; then
-        echo "openssl decopress failed"
-        rm -rf openssl*
-        return ${DECOMPRESS_FAIL}
-    fi
-
-    return ${SUCCESS}
+    common_download "openssl" "$url" axel
+    return $?
 }
 
 download_pcre() {
-    if [[ -d pcre ]]; then
-        echo "pcre has exist!!"
-        return ${SUCCESS}
-    fi
-
-    url="https://jaist.dl.sourceforge.net/project/pcre/pcre/8.38/pcre-8.38.tar.gz"
-    echo "pcre url: $url"
-    axel -n 10 -o pcre.tar.gz ${url}
-    if [[ $? -ne 0 ]]; then
-        echo "pcre source download failed"
-        rm -rf pcre.tar.gz*
-        return ${DOWNLOAD_FAIL}
-    fi
-
-    rm -rf pcre && mkdir pcre
-    tar -zvxf pcre.tar.gz -C pcre --strip-components 1
-    if [[ $? -ne 0 ]]; then
-        echo "pcre decopress failed"
-        rm -rf pcre*
-        return return ${DECOMPRESS_FAIL}
-    fi
-
-    return ${SUCCESS}
+    url="https://ftp.pcre.org/pub/pcre/pcre-8.38.tar.gz"
+    common_download "pcre" "$url" axel
+    return $?
 }
 
 download_zlib() {
-    if [[ -d zlib ]]; then
-        echo "zlib has exist!!"
-        return ${SUCCESS}
-    fi
-
     url="http://www.zlib.net/fossils/zlib-1.2.11.tar.gz"
-    echo "zlib url: $url"
-    axel -n 10 -o zlib.tar.gz ${url}
-    if [[ $? -ne 0 ]]; then
-        echo "pcre source download failed"
-        rm -rf zlib.tar.gz.*
-        return ${DOWNLOAD_FAIL}
-    fi
+    common_download "zlib" "$url" axel
 
-    rm -rf zlib && mkdir zlib
-    tar -zvxf zlib.tar.gz -C zlib --strip-components 1
-    if [[ $? -ne 0 ]]; then
-        echo "pcre decopress failed"
-        rm -rf zlib*
-        return return ${DECOMPRESS_FAIL}
-    fi
-
-    return ${SUCCESS}
+    return $?
 }
 
 # https proxy
 download_proxy_connect() {
-   if [[ -d ngx_http_proxy_connect_module ]]; then
-        echo "proxy_connect has exist!!"
-        return ${SUCCESS}
-    fi
-
     url="https://codeload.github.com/chobits/ngx_http_proxy_connect_module/tar.gz/v0.0.1"
-    echo "proxy_connect url: $url"
-    curl ${url} -o ngx_http_proxy_connect_module.tar.gz
-    if [[ $? -ne 0 ]]; then
-        echo "proxy_connect source download failed"
-        rm -rf zlib.tar.gz.*
-        return ${DOWNLOAD_FAIL}
-    fi
-
-    rm -rf zlib && mkdir zlib
-    tar -zvxf ngx_http_proxy_connect_module.tar.gz -C ngx_http_proxy_connect_module --strip-components 1
-    if [[ $? -ne 0 ]]; then
-        echo "proxy_connect decopress failed"
-        rm -rf ngx_http_proxy_connect_module*
-        return return ${DECOMPRESS_FAIL}
-    fi
-
-    return ${SUCCESS}
+    common_download "ngx_http_proxy_connect_module" "$url"
+    return $?
 }
+
+# nginx lua
+donwnload_nginx_lua() {
+    luajit="http://luajit.org/download/LuaJIT-2.0.5.tar.gz"
+    common_download "luajit" "$luajit"
+    if [[ $? -ne ${SUCCESS} ]]; then
+        return $?
+    fi
+
+    ngx_devel_kit="https://codeload.github.com/vision5/ngx_devel_kit/tar.gz/v0.3.1"
+    common_download "ngx_devel_kit" "$ngx_devel_kit"
+    if [[ $? -ne ${SUCCESS} ]]; then
+        return $?
+    fi
+
+    ngx_lua="https://codeload.github.com/openresty/lua-nginx-module/tar.gz/v0.10.19"
+    common_download "lua-nginx-module" "$ngx_lua"
+    return $?
+}
+
+build_luajit() {
+    echo "build lua"
+}
+
 
 build_sorce_code() {
     # create nginx dir
@@ -243,6 +215,10 @@ build_sorce_code() {
         patch -p1 < ${workdir}/ngx_http_proxy_connect_module/patch/proxy_connect_rewrite_1018.patch
     fi
 
+    # nginx lua
+    export LUAJIT_LIB="$workdir/luajit/lib"
+    export LUAJIT_INC="$workdir/luajit/include/luajit-2.1"
+
     ./configure \
     --user=www  \
     --group=www \
@@ -273,13 +249,16 @@ build_sorce_code() {
     --with-pcre=${workdir}/pcre \
     --with-openssl=${workdir}/openssl \
     --add-module=${workdir}/ngx_http_proxy_connect_module \
+    --with-ld-opt="-Wl,-rpath,$LUAJIT_LIB" \
+    --add-module=${workdir}/ngx_devel_kit \
+    --add-module=${workdir}/lua-nginx-module \
     --http-client-body-temp-path=${installdir}/tmp/client \
     --http-proxy-temp-path=${installdir}/tmp/proxy \
     --http-fastcgi-temp-path=${installdir}/tmp/fcgi \
     --http-uwsgi-temp-path=${installdir}/tmp/uwsgi \
     --http-scgi-temp-path=${installdir}/tmp/scgi
     if [[ $? -ne 0 ]]; then
-        echo "configure fail"
+        log_error "configure fail"
         return ${CONFIGURE_FAIL}
     fi
 
@@ -291,13 +270,13 @@ build_sorce_code() {
 
     make -j ${cpu}
     if [[ $? -ne 0 ]]; then
-        echo "build fail"
+        log_error "build fail"
         return ${BUILD_FAIL}
     fi
 
     make install
     if [[ $? -ne 0 ]]; then
-        echo "install failed"
+        log_error "install failed"
         return ${INSTALL_FAIL}
     fi
 
@@ -632,9 +611,7 @@ EOF
 
     # test
     if [[ $(pgrep nginx) ]]; then
-        echo
-        echo "INFO: Nginx install successfully"
-        echo
+        log_info "INFO: Nginx install successfully"
     fi
 }
 
@@ -670,6 +647,11 @@ do_install(){
      fi
 
      download_proxy_connect
+     if [[ $? -ne ${SUCCESS} ]]; then
+        return
+     fi
+
+     donwnload_nginx_lua
      if [[ $? -ne ${SUCCESS} ]]; then
         return
      fi
