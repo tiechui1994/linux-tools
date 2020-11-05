@@ -56,7 +56,7 @@ common_download() {
 
     if [[ $? -ne 0 ]]; then
         log_error "$name source download failed"
-        rm -rf ${name}.tar.gz.*
+        rm -rf ${name}.tar.gz
         return ${DOWNLOAD_FAIL}
     fi
 
@@ -144,7 +144,18 @@ donwnload_nginx_lua() {
 }
 
 build_luajit() {
-    echo "build lua"
+    cd ${workdir}/luajit && make
+    if [[ $? -ne 0 ]]; then
+        log_error "make luajit fail"
+        return ${CONFIGURE_FAIL}
+    fi
+
+    make install PREFIX=/usr/local/luajit
+    if [[ $? -ne 0 ]]; then
+        log_error "make install luajit fail"
+        rm -rf /usr/local/luajit
+        return ${INSTALL_FAIL}
+    fi
 }
 
 
@@ -216,8 +227,8 @@ build_sorce_code() {
     fi
 
     # nginx lua
-    export LUAJIT_LIB="$workdir/luajit/lib"
-    export LUAJIT_INC="$workdir/luajit/include/luajit-2.1"
+    export LUAJIT_LIB="/usr/local/luajit/lib"
+    export LUAJIT_INC="/usr/local/luajit/include/luajit-2.0"
 
     ./configure \
     --user=www  \
@@ -620,7 +631,11 @@ clean_file() {
     rm -rf nginx-* && \
     rm -rf openssl* && \
     rm -rf pcre* && \
-    rm -rf zlib*
+    rm -rf zlib* && \
+    rm -rf luajit* && \
+    rm -rf lua-nginx-module* && \
+    rm -rf ngx_devel_kit* && \
+    rm -rf ngx_http_proxy_connect_module*
 }
 
 do_install(){
@@ -657,6 +672,11 @@ do_install(){
      fi
 
      download_nginx
+     if [[ $? -ne ${SUCCESS} ]]; then
+        return
+     fi
+
+     build_luajit
      if [[ $? -ne ${SUCCESS} ]]; then
         return
      fi
