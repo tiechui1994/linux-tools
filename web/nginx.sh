@@ -149,6 +149,33 @@ download_zlib() {
     return ${SUCCESS}
 }
 
+# https proxy
+download_proxy_connect() {
+   if [[ -d ngx_http_proxy_connect_module ]]; then
+        echo "proxy_connect has exist!!"
+        return ${SUCCESS}
+    fi
+
+    url="https://codeload.github.com/chobits/ngx_http_proxy_connect_module/tar.gz/v0.0.1"
+    echo "proxy_connect url: $url"
+    curl ${url} -o ngx_http_proxy_connect_module.tar.gz
+    if [[ $? -ne 0 ]]; then
+        echo "proxy_connect source download failed"
+        rm -rf zlib.tar.gz.*
+        return ${DOWNLOAD_FAIL}
+    fi
+
+    rm -rf zlib && mkdir zlib
+    tar -zvxf ngx_http_proxy_connect_module.tar.gz -C ngx_http_proxy_connect_module --strip-components 1
+    if [[ $? -ne 0 ]]; then
+        echo "proxy_connect decopress failed"
+        rm -rf ngx_http_proxy_connect_module*
+        return return ${DECOMPRESS_FAIL}
+    fi
+
+    return ${SUCCESS}
+}
+
 build_sorce_code() {
     # create nginx dir
     rm -rf  ${installdir} && \
@@ -203,7 +230,19 @@ build_sorce_code() {
     #
     ##
     # build and install
-    cd ${workdir}/nginx-${version} && \
+    cd ${workdir}/nginx-${version}
+
+    # proxy_connect
+    if [[ "$version" =~ 1.13.* || "$version" =~ 1.14.* ]]; then
+        patch -p1 < ${workdir}/ngx_http_proxy_connect_module/patch/proxy_connect_rewrite_1014.patch
+    elif [[ "$version" = "1.15.2"  ]]; then
+        patch -p1 < ${workdir}/ngx_http_proxy_connect_module/patch/proxy_connect_rewrite_1015.patch
+    elif [[ "$version" =~ 1.15.* || "$version" =~ 1.16.* ]]; then
+        patch -p1 < ${workdir}/ngx_http_proxy_connect_module/patch/proxy_connect_rewrite_101504.patch
+    else
+        patch -p1 < ${workdir}/ngx_http_proxy_connect_module/patch/proxy_connect_rewrite_1018.patch
+    fi
+
     ./configure \
     --user=www  \
     --group=www \
@@ -233,6 +272,7 @@ build_sorce_code() {
     --with-zlib=${workdir}/zlib \
     --with-pcre=${workdir}/pcre \
     --with-openssl=${workdir}/openssl \
+    --add-module=${workdir}/ngx_http_proxy_connect_module \
     --http-client-body-temp-path=${installdir}/tmp/client \
     --http-proxy-temp-path=${installdir}/tmp/proxy \
     --http-fastcgi-temp-path=${installdir}/tmp/fcgi \
@@ -625,6 +665,11 @@ do_install(){
      fi
 
      download_zlib
+     if [[ $? -ne ${SUCCESS} ]]; then
+        return
+     fi
+
+     download_proxy_connect
      if [[ $? -ne ${SUCCESS} ]]; then
         return
      fi
