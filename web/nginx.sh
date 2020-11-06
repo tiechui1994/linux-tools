@@ -9,7 +9,7 @@
 
 version=1.15.8
 workdir=$(pwd)
-installdir=/opt/local/nginx
+installdir=/opt/share/local/nginx
 
 SUCCESS=0
 INVALID_USER=1
@@ -46,12 +46,24 @@ common_download() {
         return ${SUCCESS}
     fi
 
+    if [[ -f "$name.tar.gz" && -n $(file "$name.tar.gz" |grep -o 'POSIX tar archive') ]]; then
+        rm -rf ${name} && mkdir ${name}
+        tar -zvxf ${name}.tar.gz -C ${name} --strip-components 1
+        if [[ $? -ne 0 ]]; then
+            log_error "$name decopress failed"
+            rm -rf ${name}*
+            return ${DECOMPRESS_FAIL}
+        fi
+        return ${SUCCESS}
+    fi
+
     echo "$name url: $url"
+    rm -rf ${name}.tar.gz
     command_exists "$cmd"
     if [[ $? -eq 0 && "$cmd" == "axel" ]]; then
         axel -n 10 -o "$name.tar.gz" ${url}
     else
-        curl ${url} -o "$name.tar.gz"
+        curl -C - ${url} -o "$name.tar.gz"
     fi
 
     if [[ $? -ne 0 ]]; then
@@ -75,9 +87,7 @@ command_exists() {
 
 check_user() {
     if [[ "$(whoami)" != "root" ]];then
-        echo
-        echo "ERROR: Please use root privileges to execute"
-        echo
+        log_error "please use root privileges to execute"
         return ${INVALID_USER}
     fi
 
@@ -118,6 +128,7 @@ download_zlib() {
 }
 
 # https proxy
+# doc: https://github.com/chobits/ngx_http_proxy_connect_module
 download_proxy_connect() {
     url="https://codeload.github.com/chobits/ngx_http_proxy_connect_module/tar.gz/v0.0.1"
     common_download "ngx_http_proxy_connect_module" "$url"
@@ -127,7 +138,7 @@ download_proxy_connect() {
 # nginx lua
 donwnload_nginx_lua() {
     luajit="http://luajit.org/download/LuaJIT-2.0.5.tar.gz"
-    common_download "luajit" "$luajit"
+    common_download "luajit" "$luajit" axel
     if [[ $? -ne ${SUCCESS} ]]; then
         return $?
     fi
@@ -138,11 +149,13 @@ donwnload_nginx_lua() {
         return $?
     fi
 
-    ngx_lua="https://codeload.github.com/openresty/lua-nginx-module/tar.gz/v0.10.19"
+    ngx_lua="https://codeload.github.com/openresty/lua-nginx-module/tar.gz/v0.10.14"
     common_download "lua-nginx-module" "$ngx_lua"
     return $?
 }
 
+# nginx_lua
+# doc: https://github.com/openresty/lua-nginx-module#installation
 build_luajit() {
     cd ${workdir}/luajit && make
     if [[ $? -ne 0 ]]; then
@@ -622,7 +635,7 @@ EOF
 
     # test
     if [[ $(pgrep nginx) ]]; then
-        log_info "INFO: Nginx install successfully"
+        log_info "Nginx install successfully"
     fi
 }
 
