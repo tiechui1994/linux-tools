@@ -9,69 +9,155 @@
 version=2.16.1
 workdir=$(pwd)
 
+SUCCESS=0
+DECOMPRESS_FAIL=1
+DOWNLOAD_FAIL=2
+CONFIGURE_FAIL=3
+BUILD_FAIL=4
+INSTALL_FAIL=5
+
+# log
+log_error(){
+    red="\033[97;41m"
+    reset="\033[0m"
+    msg="[E] $@"
+    echo -e "$red$msg$reset"
+}
+log_warn(){
+    yellow="\033[90;43m"
+    reset="\033[0m"
+    msg="[W] $@"
+    echo -e "$yellow$msg$reset"
+}
+log_info() {
+    green="\033[97;42m"
+    reset="\033[0m"
+    msg="[I] $@"
+    echo -e "$green$msg$reset"
+}
+
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
 }
 
+common_download() {
+    name=$1
+    url=$2
+    cmd=$3
+
+    if [[ -d "$name" ]]; then
+        log_info "$name has exist !!"
+        return ${SUCCESS}
+    fi
+
+    if [[ -f "$name.tar.gz" && -n $(file "$name.tar.gz" |grep -o 'POSIX tar archive') ]]; then
+        rm -rf ${name} && mkdir ${name}
+        tar -zvxf ${name}.tar.gz -C ${name} --strip-components 1
+        if [[ $? -ne 0 ]]; then
+            log_error "$name decopress failed"
+            rm -rf ${name}*
+            return ${DECOMPRESS_FAIL}
+        fi
+        return ${SUCCESS}
+    fi
+
+    log_info "$name url: $url"
+    rm -rf ${name}.tar.gz
+    command_exists "$cmd"
+    if [[ $? -eq 0 && "$cmd" == "axel" ]]; then
+        axel -n 10 -o "$name.tar.gz" ${url}
+    else
+        curl -C - ${url} -o "$name.tar.gz"
+    fi
+
+    if [[ $? -ne 0 ]]; then
+        log_error "$name source download failed"
+        rm -rf ${name}.tar.gz
+        return ${DOWNLOAD_FAIL}
+    fi
+
+    rm -rf ${name} && mkdir ${name}
+    tar -zvxf ${name}.tar.gz -C ${name} --strip-components 1
+    if [[ $? -ne 0 ]]; then
+        log_error "$name decopress failed"
+        rm -rf ${name}*
+        return ${DECOMPRESS_FAIL}
+    fi
+}
+
 check_param() {
     if [[ "$(whoami)" != "root" ]]; then
-        echo
-        echo "ERROR: Please use root privileges to execute"
-        echo
+        log_warn "Please use root privileges to execute"
         exit
     fi
 
-    if command_exists axel; then
-        echo
-        echo "WARN: The "axel" command appears to already exist on this system"
-        echo
+    if [[ command_exists axel ]]; then
+        log_warn "The "axel" command appears to already exist on this system"
         exit
     fi
 }
 
 download_axel() {
-    # 下载源代码
-    if ! command_exists curl; then
-        apt-get update && apt-get install curl
-    fi
-
     prefix="https://github.com/axel-download-accelerator/axel/releases/download"
-    curl -o axel-${version}.tar.gz ${prefix}/v${version}/axel-${version}.tar.gz && \
-    tar -zvxf axel-${version}.tar.gz
+    url=${prefix}/v${version}/axel-${version}.tar.gz
+
+    common_download "axel" ${url}
+    return $?
 }
 
-make_install() {
-    # 安装依赖文件
+build() {
+    # install depend
     apt-get update && \
     apt-get install autoconf pkg-config gettext autopoint libssl-dev && \
     autoreconf -fiv
 
-    # 编译安装
-     cd ${workdir}/axel-${version} && \
-    ./configure && make && make install
+    # build
+    cd ${workdir}/axel && ./configure
+    if [[ $? -ne 0 ]]; then
+        log_error "configure fail"
+        return ${CONFIGURE_FAIL}
+    fi
 
-    # 检查
-    if command_exists axel; then
-        echo
-        echo "INFO: The axel install successfully"
-        echo
+    cpu=$(cat /proc/cpuinfo | grep 'processor' | wc -l)
+    make -j ${cpu}
+    if [[ $? -ne 0 ]]; then
+        log_error "build fail"
+        return ${BUILD_FAIL}
+    fi
+
+    make install
+    if [[ $? -ne 0 ]]; then
+        log_error "install failed"
+        return ${INSTALL_FAIL}
+    fi
+
+    # check
+    if [[ command_exists axel ]]; then
+        log_info "the axel install successfully"
+        return ${SUCCESS}
     else
-        echo
-        echo "ERROR: The axel install failed"
-        echo
+        log_error "the axel install failed"
+        return ${INSTALL_FAIL}
     fi
 }
 
-clean_file() {
-    # 清理工作
+clean() {
     cd ${workdir} && rm -rf axel-${version}*
 }
 
 do_install() {
     check_param
     download_axel
-    make_install
-    clean_file
+    if [[ $? -ne ${SUCCESS} ]]; then
+        return
+    fi
+
+    build
+    if [[ $? -ne ${SUCCESS} ]]; then
+        return
+    fi
+
+    clean
 }
 
 do_install

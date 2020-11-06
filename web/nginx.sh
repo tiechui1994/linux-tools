@@ -18,22 +18,26 @@ DECOMPRESS_FAIL=3
 CONFIGURE_FAIL=4
 BUILD_FAIL=5
 INSTALL_FAIL=6
+SERVICE_FAIL=7
 
 # log
 log_error(){
     red="\033[97;41m"
     reset="\033[0m"
-    echo -e "$red$@$reset"
+    msg="[E] $@"
+    echo -e "$red$msg$reset"
 }
 log_warn(){
     yellow="\033[90;43m"
     reset="\033[0m"
-    echo -e "$yellow$@$reset"
+    msg="[W] $@"
+    echo -e "$yellow$msg$reset"
 }
 log_info() {
     green="\033[97;42m"
     reset="\033[0m"
-    echo -e "$green$@$reset"
+    msg="[I] $@"
+    echo -e "$green$msg$reset"
 }
 
 common_download() {
@@ -57,7 +61,7 @@ common_download() {
         return ${SUCCESS}
     fi
 
-    echo "$name url: $url"
+    log_info "$name url: $url"
     rm -rf ${name}.tar.gz
     command_exists "$cmd"
     if [[ $? -eq 0 && "$cmd" == "axel" ]]; then
@@ -172,7 +176,7 @@ build_luajit() {
 }
 
 
-build_sorce_code() {
+build() {
     # create nginx dir
     rm -rf  ${installdir} && \
     mkdir -p ${installdir} && \
@@ -307,7 +311,7 @@ build_sorce_code() {
     return ${SUCCESS}
 }
 
-add_config_file() {
+add_service() {
     # set dir mode
     chown -R www:www ${installdir}
 
@@ -629,26 +633,37 @@ EOF
     repl="$installdir"
     printf "%s" "${startup//$regex/$repl}" > /etc/init.d/nginx
     chmod a+x /etc/init.d/nginx && update-rc.d nginx defaults
+    if [[ $? -ne 0 ]]; then
+        log_error "update-rc failed"
+        return ${SERVICE_FAIL}
+    fi
 
     # start up
-    service nginx start
+    systemctl daemon-reload && service nginx start
+    if [[ $? -ne 0 ]]; then
+        log_error "service start nginx failed"
+        return ${SERVICE_FAIL}
+    fi
 
     # test
     if [[ $(pgrep nginx) ]]; then
-        log_info "Nginx install successfully"
+        log_info "nginx install successfully !"
+        return ${SUCCESS}
     fi
+
+    return ${SERVICE_FAIL}
 }
 
 clean_file() {
-    cd ../ && \
-    rm -rf nginx-* && \
-    rm -rf openssl* && \
-    rm -rf pcre* && \
-    rm -rf zlib* && \
-    rm -rf luajit* && \
-    rm -rf lua-nginx-module* && \
-    rm -rf ngx_devel_kit* && \
-    rm -rf ngx_http_proxy_connect_module*
+    rm -rf ${workdir}/nginx
+    rm -rf ${workdir}/nginx.tar.gz
+    rm -rf ${workdir}/openssl*
+    rm -rf ${workdir}/pcre*
+    rm -rf ${workdir}/zlib*
+    rm -rf ${workdir}/luajit*
+    rm -rf ${workdir}/lua-nginx-module*
+    rm -rf ${workdir}/ngx_devel_kit*
+    rm -rf ${workdir}/ngx_http_proxy_connect_module*
 }
 
 do_install(){
@@ -694,12 +709,16 @@ do_install(){
         return
      fi
 
-     build_sorce_code
+     build
      if [[ $? -ne ${SUCCESS} ]]; then
         return
      fi
 
-     add_config_file
+     add_service
+     if [[ $? -ne ${SUCCESS} ]]; then
+        return
+     fi
+
      clean_file
 }
 

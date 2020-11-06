@@ -5,7 +5,82 @@
 #==================================================================
 
 version=10.5
+workdir=$(pwd)
 installdir=/opt/local/pgsql
+
+SUCCESS=0
+DECOMPRESS_FAIL=1
+DOWNLOAD_FAIL=2
+CONFIGURE_FAIL=3
+BUILD_FAIL=4
+MAKE_FAIL=5
+INSTALL_FAIL=6
+
+
+# log
+log_error(){
+    red="\033[97;41m"
+    reset="\033[0m"
+    msg="[E] $@"
+    echo -e "$red$msg$reset"
+}
+log_warn(){
+    yellow="\033[90;43m"
+    reset="\033[0m"
+    msg="[W] $@"
+    echo -e "$yellow$msg$reset"
+}
+log_info() {
+    green="\033[97;42m"
+    reset="\033[0m"
+    msg="[I] $@"
+    echo -e "$green$msg$reset"
+}
+
+common_download() {
+    name=$1
+    url=$2
+    cmd=$3
+
+    if [[ -d "$name" ]]; then
+        log_info "$name has exist !!"
+        return ${SUCCESS}
+    fi
+
+    if [[ -f "$name.tar.gz" && -n $(file "$name.tar.gz" |grep -o 'POSIX tar archive') ]]; then
+        rm -rf ${name} && mkdir ${name}
+        tar -zvxf ${name}.tar.gz -C ${name} --strip-components 1
+        if [[ $? -ne 0 ]]; then
+            log_error "$name decopress failed"
+            rm -rf ${name}*
+            return ${DECOMPRESS_FAIL}
+        fi
+        return ${SUCCESS}
+    fi
+
+    log_info "$name url: $url"
+    rm -rf ${name}.tar.gz
+    command_exists "$cmd"
+    if [[ $? -eq 0 && "$cmd" == "axel" ]]; then
+        axel -n 10 -o "$name.tar.gz" ${url}
+    else
+        curl -C - ${url} -o "$name.tar.gz"
+    fi
+
+    if [[ $? -ne 0 ]]; then
+        log_error "$name source download failed"
+        rm -rf ${name}.tar.gz
+        return ${DOWNLOAD_FAIL}
+    fi
+
+    rm -rf ${name} && mkdir ${name}
+    tar -zvxf ${name}.tar.gz -C ${name} --strip-components 1
+    if [[ $? -ne 0 ]]; then
+        log_error "$name decopress failed"
+        rm -rf ${name}*
+        return ${DECOMPRESS_FAIL}
+    fi
+}
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
@@ -13,33 +88,28 @@ command_exists() {
 
 check_user() {
     if [[ "$(whoami)" != "root" ]];then
-        echo
-        echo "ERROR: Please use root privileges to execute"
-        echo
+        log_error "Please use root privileges to execute"
         exit
     fi
 }
 
-download_postgre() {
-    if ! command_exists axel; then
-        apt-get update && apt-get install axel -y
-    fi
-
-    doamin=http://ftp.postgresql.org/pub/source
-    axel -n 100 -o postgresql.tar.gz "${doamin}/v${version}/postgresql-${version}.tar.gz"
-
-    [ -d postgresql ] || mkdir postgresql
-    tar -zvxf postgresql.tar.gz -C postgresql --strip-components 1
+download_psgl() {
+    prefix=http://ftp.postgresql.org/pub/source
+    url="$prefix/v$version/postgresql-$version.tar.gz"
+    common_download "postgresql" ${url} axel
+    return $?
 }
 
-install_depend() {
+build() {
     apt-get install zlib1g zlib1g-dev libedit-dev libperl-dev openssl libssl-dev \
         libxml2 libxml2-dev libxslt-dev bison tcl tcl-dev flex -y
-}
+    if [[ $? -ne 0 ]]; then
+        log_error "install depend failed..."
+        return ${INSTALL_FAIL}
+    fi
 
-install() {
     rm -rf ${installdir}
-    cd postgresql && \
+    cd ${workdir}/postgresql && \
     ./configure \
     --prefix=${installdir} \
     --with-tcl \
@@ -49,23 +119,40 @@ install() {
     --with-libedit-preferred \
     --with-libxml \
     --with-libxslt
+    if [[ $? -ne ${SUCCESS} ]]; then
+        log_error "configure failed..."
+        return ${CONFIGURE_FAIL}
+    fi
 
     # make and install
     cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
-    make -j${cpu} &&  make install
+    make -j ${cpu}
+    if [[ $? -ne 0 ]]; then
+        log_error "configure failed..."
+        return ${MAKE_FAIL}
+    fi
+
+    make install
+    if [[ $? -ne 0 ]]; then
+        log_error "configure failed..."
+        return ${INSTALL_FAIL}
+    fi
+
+    return ${SUCCESS}
 }
 
-add_config() {
+add_service() {
     mkdir -p ${installdir}/log && \
     mkdir -p ${installdir}/data && \
-    mkdir -p ${installdir}/etc && \
-    cat >> ${installdir}/etc/pgsql.conf << EOF
+    mkdir -p ${installdir}/etc
+
+    read -r -d '' conf <<-'EOF'
 #------------------------------------------------------------------------------
 # FILE LOCATIONS
 #------------------------------------------------------------------------------
 
-data_directory = "/opt/local/pgsql/data"
-external_pid_file = "/opt/local/pgsql/log/pgsql.pid"
+data_directory = "$dir/data"
+external_pid_file = "$dir/log/pgsql.pid"
 
 #------------------------------------------------------------------------------
 # CONNECTIONS AND AUTHENTICATION
@@ -77,7 +164,7 @@ listen_addresses = 'localhost'
 port = 5432
 max_connections = 100
 superuser_reserved_connections = 3
-unix_socket_directories = '/opt/local/pgsql/log'
+unix_socket_directories = "$dir/log"
 unix_socket_permissions = 0777
 
 
@@ -233,14 +320,28 @@ log_line_prefix = '%m [%p] '		# special values:
 
 log_timezone = 'GMT'
 EOF
+
+    regex='$dir'
+    repl="$installdir"
+    printf "%s" "${conf//$regex/$repl}" > ${installdir}/etc/pgsql.conf
 }
 
 do_instll() {
     check_user
-    download_postgre
-    install_depend
-    install
-    add_config
+    download_psgl
+    if [[ $? -ne ${SUCCESS} ]]; then
+        return
+    fi
+
+    build
+    if [[ $? -ne ${SUCCESS} ]]; then
+        return
+    fi
+
+    add_service
+    if [[ $? -ne ${SUCCESS} ]]; then
+        return
+    fi
 }
 
 do_instll

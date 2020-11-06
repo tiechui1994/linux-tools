@@ -15,27 +15,74 @@ SUCCESS=0
 CMAKE_FAIL=1
 MAKE_FAIL=2
 INSTALL_FAIL=3
-DOWNLOAD_FAIL=4
-EXTRACT_FAIL=5
-DEPEND_FAIL=6
-INIT_FAIL=7
-START_FAIL=8
+DECOMPRESS_FAIL=4
+DOWNLOAD_FAIL=5
+INIT_FAIL=6
+SERVICE_FAIL=7
 
 # log
 log_error(){
     red="\033[97;41m"
     reset="\033[0m"
-    echo -e "$red$@$reset"
+    msg="[E] $@"
+    echo -e "$red$msg$reset"
 }
 log_warn(){
     yellow="\033[90;43m"
     reset="\033[0m"
-    echo -e "$yellow$@$reset"
+    msg="[W] $@"
+    echo -e "$yellow$msg$reset"
 }
 log_info() {
     green="\033[97;42m"
     reset="\033[0m"
-    echo -e "$green$@$reset"
+    msg="[I] $@"
+    echo -e "$green$msg$reset"
+}
+
+common_download() {
+    name=$1
+    url=$2
+    cmd=$3
+
+    if [[ -d "$name" ]]; then
+        log_info "$name has exist !!"
+        return ${SUCCESS}
+    fi
+
+    if [[ -f "$name.tar.gz" && -n $(file "$name.tar.gz" |grep -o 'POSIX tar archive') ]]; then
+        rm -rf ${name} && mkdir ${name}
+        tar -zvxf ${name}.tar.gz -C ${name} --strip-components 1
+        if [[ $? -ne 0 ]]; then
+            log_error "$name decopress failed"
+            rm -rf ${name}*
+            return ${DECOMPRESS_FAIL}
+        fi
+        return ${SUCCESS}
+    fi
+
+    log_info "$name url: $url"
+    rm -rf ${name}.tar.gz
+    command_exists "$cmd"
+    if [[ $? -eq 0 && "$cmd" == "axel" ]]; then
+        axel -n 10 -o "$name.tar.gz" ${url}
+    else
+        curl -C - ${url} -o "$name.tar.gz"
+    fi
+
+    if [[ $? -ne 0 ]]; then
+        log_error "$name source download failed"
+        rm -rf ${name}.tar.gz
+        return ${DOWNLOAD_FAIL}
+    fi
+
+    rm -rf ${name} && mkdir ${name}
+    tar -zvxf ${name}.tar.gz -C ${name} --strip-components 1
+    if [[ $? -ne 0 ]]; then
+        log_error "$name decopress failed"
+        rm -rf ${name}*
+        return ${DECOMPRESS_FAIL}
+    fi
 }
 
 command_exists() {
@@ -44,73 +91,38 @@ command_exists() {
 
 check_param() {
     if [[ "$(whoami)" != "root" ]]; then
-        log_error "ERROR: Please use root privileges to execute"
+        log_error "Please use root privileges to execute"
         exit
-    fi
-
-    if ! command_exists axel; then
-        apt-get update && apt-get install axel -y
     fi
 }
 
 download_mysql() {
-    mysql="$workdir/mysql-$version"
-    if [[ -d "$mysql" ]]; then
-        log_info "mysql has exist!!"
-        return ${SUCCESS}
-    fi
-
     url="https://mirrors.cloud.tencent.com/mysql/downloads/MySQL-5.7/mysql-$version.tar.gz"
-    log_info "mysql url: $url"
-    curl -o mysql-${version}.tar.gz ${url}
-    if [[ $? -ne 0 ]];then
-        log_error "donwload mysql source failed"
-        return ${DOWNLOAD_FAIL}
-    fi
+    common_download "mysql" ${url} axel
 
-    mkdir ${mysql} && \
-    tar -zvxf mysql-${version}.tar.gz -C ${mysql} --strip-components 1
-    if [[ $? -ne 0 ]];then
-        log_error "extract mysql file failed"
-        return ${EXTRACT_FAIL}
-    fi
-
-    return ${SUCCESS}
+    return $?
 }
 
 download_boost(){
-    mysql="$workdir/mysql-$version"
-    if [[ -f ${mysql}/boost/boost_1_59_0.tar.gz ]]; then
-        log_info "boost exist!!"
-        return ${SUCCESS}
-    fi
-
-    mkdir -p "$mysql/boost"
     url="https://nchc.dl.sourceforge.net/project/boost/boost/1.59.0/boost_1_59_0.tar.gz"
-    log_info "boost url: $url"
-    axel -n 100 ${url} -o ${mysql}/boost/
-    if [[ $? -ne 0 ]];then
-        log_error "download boost fail"
-        rm -rf "$mysql/boost"
-        return ${DOWNLOAD_FAIL}
+    common_download "boost" ${url} axel
+    if [[ $? -eq ${SUCCESS} ]]; then
+        mv "$workdir/boost" "$workdir/mysql/boost"
+        return $?
     fi
 
-    return ${SUCCESS}
+    return $?
 }
 
-install_depency(){
-    # install depend
+build() {
+    # depend
     apt-get update && \
     apt-get install cmake build-essential libncurses5-dev bison libssl-dev -y
     if [[ $? -ne 0 ]]; then
         log_error "install depency fail"
-        return ${DEPEND_FAIL}
+        return ${INSTALL_FAIL}
     fi
 
-    return ${SUCCESS}
-}
-
-make_install() {
     # remove old directory
     rm -rf ${installdir} && \
     mkdir -p ${installdir}/mysql && \
@@ -123,15 +135,14 @@ make_install() {
     if [[ -z "$(cat /etc/group|grep -E '^mysql:')" ]]; then
        groupadd -r mysql
     fi
-
     if [[ -z "$(cat /etc/passwd|grep -E '^mysql:')" ]]; then
         useradd -r -g mysql -s /sbin/nologin mysql
     fi
 
     # in workspace
-    cd "$workdir/mysql-$version"
+    cd "$workdir/mysql"
 
-    # cmake in workdir
+    # cmake
     cmake . \
     -DCMAKE_INSTALL_PREFIX=${installdir}/mysql \
     -DMYSQL_DATADIR=${installdir}/data \
@@ -148,7 +159,7 @@ make_install() {
     -DDEFAULT_CHARSET=utf8 \
     -DDEFAULT_COLLATION=utf8_general_ci
     if [[ $? -ne 0 ]]; then
-        echo "cmake fail, plaease check and try again..."
+        log_error "cmake fail, plaease check and try again.."
         return ${CMAKE_FAIL}
     fi
 
@@ -156,22 +167,20 @@ make_install() {
     cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
     make -j ${cpu}
     if [[ $? -ne 0 ]]; then
-        echo "make fail, plaease check and try again..."
+        log_error "make fail, plaease check and try again..."
         return ${MAKE_FAIL}
     fi
 
     make install
     if [[ $? -ne 0 ]]; then
-        echo "make install fail, plaease check and try again..."
+        log_error "make install fail, plaease check and try again..."
         return ${INSTALL_FAIL}
     fi
 
     return ${SUCCESS}
 }
 
-add_config() {
-    rm -rf ${installdir}/conf/my.cnf
-
+add_service() {
     read -r -d '' conf <<- 'EOF'
 [client]
     port=3306
@@ -218,11 +227,17 @@ EOF
     chown -R mysql:mysql "$installdir"
 
     # add service config
-    cp ${installdir}/mysql/support-files/mysql.server /etc/init.d/mysqld && \
-    update-rc.d mysqld defaults
+    cp ${installdir}/mysql/support-files/mysql.server /etc/init.d/mysqld
+    chmod a+x /etc/init.d/mysqld && update-rc.d mysqld defaults
+    if [[ $? -ne 0 ]]; then
+        log_error "update-rc failed"
+        return ${SERVICE_FAIL}
+    fi
+
+    return ${SUCCESS}
 }
 
-init_database() {
+init_db() {
     # clear logs and data
     rm -rf ${installdir}/logs/* && rm -rf ${installdir}/data/*
 
@@ -232,6 +247,10 @@ init_database() {
     --user=mysql \
     --basedir=${installdir}/mysql \
     --datadir=${installdir}/data
+    if [[ $? -ne 0 ]]; then
+        log_error "mysqld initialize failed"
+        return ${INIT_FAIL}
+    fi
 
     # check logs/mysql.err.
     error=$(grep -E -i -o '\[error\].*' "$installdir/logs/mysql.err")
@@ -244,27 +263,30 @@ init_database() {
     fi
 
     # start mysqld service
-    service mysqld start
+    systemctl daemon-reload && service mysqld start
     if [[ $? -ne 0 ]]; then
         log_error "mysqld service start failed, please check and trg again..."
-        return ${START_FAIL}
+        return ${SERVICE_FAIL}
     fi
 
     # check password
     password="$(grep 'temporary password' "$installdir/logs/mysql.err"|cut -d ' ' -f11)"
-    log_info
     log_info "current password is: $password"
-    log_info "please use follow command and sql login and update your password:"
-    log_info "mysql -u root --password='$password'"
-    log_info "SET PASSWORD = PASSWORD('your new password');"
-    log_info "ALTER user 'root'@'localhost' PASSWORD EXPIRE NEVER;"
-    log_info "FLUSH PRIVILEGES;"
-    log_info
+    log_warn "please use follow command and sql login and update your password:"
+    log_warn "mysql -u root --password='$password'"
+    log_warn "SET PASSWORD = PASSWORD('your new password');"
+    log_warn "ALTER user 'root'@'localhost' PASSWORD EXPIRE NEVER;"
+    log_warn "FLUSH PRIVILEGES;"
     log_info "mysql install successfully"
+
+    return ${SUCCESS}
 }
 
 clean_file(){
-    cd ../ && rm -rf mysql-*
+    rm -rf ${workdir}/mysql
+    rm -rf ${workdir}/mysql.tar.gz
+    rm -rf ${workdir}/boost
+    rm -rf ${workdir}/boost.tar.gz
 }
 
 do_install() {
@@ -280,19 +302,17 @@ do_install() {
         return
     fi
 
-    install_depency
+    build
     if [[ $? -ne ${SUCCESS} ]]; then
         return
     fi
 
-    make_install
+    add_service
     if [[ $? -ne ${SUCCESS} ]]; then
         return
     fi
 
-    add_config
-
-    init_database
+    init_db
     if [[ $? -ne ${SUCCESS} ]]; then
         return
     fi
