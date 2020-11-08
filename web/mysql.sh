@@ -47,42 +47,47 @@ common_download() {
 
     if [[ -d "$name" ]]; then
         log_info "$name has exist !!"
-        return ${SUCCESS}
+        return ${SUCCESS} #1
     fi
 
-    if [[ -f "$name.tar.gz" && -n $(file "$name.tar.gz" |grep -o 'POSIX tar archive') ]]; then
+    if [[ -f "$name.tar.gz" && -n $(file "$name.tar.gz" | grep -o 'POSIX tar archive') ]]; then
         rm -rf ${name} && mkdir ${name}
         tar -zvxf ${name}.tar.gz -C ${name} --strip-components 1
         if [[ $? -ne 0 ]]; then
             log_error "$name decopress failed"
-            rm -rf ${name}*
+            rm -rf ${name} && rm -rf ${name}.tar.gz
             return ${DECOMPRESS_FAIL}
         fi
-        return ${SUCCESS}
+
+        return ${SUCCESS} #2
     fi
 
     log_info "$name url: $url"
+    log_info "begin to donwload $name ...."
     rm -rf ${name}.tar.gz
     command_exists "$cmd"
     if [[ $? -eq 0 && "$cmd" == "axel" ]]; then
-        axel -n 10 -o "$name.tar.gz" ${url}
+        axel -n 10 --insecure --quite -o "$name.tar.gz" ${url}
     else
-        curl -C - ${url} -o "$name.tar.gz"
+        curl -C - --insecure --silent ${url} -o "$name.tar.gz"
     fi
 
     if [[ $? -ne 0 ]]; then
-        log_error "$name source download failed"
+        log_error "download file $name failed !!"
         rm -rf ${name}.tar.gz
         return ${DOWNLOAD_FAIL}
     fi
 
+    log_info "success to download $name"
     rm -rf ${name} && mkdir ${name}
-    tar -zvxf ${name}.tar.gz -C ${name} --strip-components 1
+    tar -zxf ${name}.tar.gz -C ${name} --strip-components 1
     if [[ $? -ne 0 ]]; then
         log_error "$name decopress failed"
-        rm -rf ${name}*
+        rm -rf ${name} && rm -rf ${name}.tar.gz
         return ${DECOMPRESS_FAIL}
     fi
+
+    return ${SUCCESS} #3
 }
 
 command_exists() {

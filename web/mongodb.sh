@@ -8,53 +8,118 @@
 
 version=3.6.9
 workdir=$(pwd)
-installdir=/opt/share/local/mongodb
+installdir=/opt/local/mongodb
+
+SUCCESS=0
+CMAKE_FAIL=1
+MAKE_FAIL=2
+INSTALL_FAIL=3
+DECOMPRESS_FAIL=4
+DOWNLOAD_FAIL=5
+INIT_FAIL=6
+SERVICE_FAIL=7
+
+# log
+log_error(){
+    red="\033[97;41m"
+    reset="\033[0m"
+    msg="[E] $@"
+    echo -e "$red$msg$reset"
+}
+log_warn(){
+    yellow="\033[90;43m"
+    reset="\033[0m"
+    msg="[W] $@"
+    echo -e "$yellow$msg$reset"
+}
+log_info() {
+    green="\033[97;42m"
+    reset="\033[0m"
+    msg="[I] $@"
+    echo -e "$green$msg$reset"
+}
+
+common_download() {
+    name=$1
+    url=$2
+    cmd=$3
+
+    if [[ -d "$name" ]]; then
+        log_info "$name has exist !!"
+        return ${SUCCESS} #1
+    fi
+
+    if [[ -f "$name.tar.gz" && -n $(file "$name.tar.gz" | grep -o 'POSIX tar archive') ]]; then
+        rm -rf ${name} && mkdir ${name}
+        tar -zvxf ${name}.tar.gz -C ${name} --strip-components 1
+        if [[ $? -ne 0 ]]; then
+            log_error "$name decopress failed"
+            rm -rf ${name} && rm -rf ${name}.tar.gz
+            return ${DECOMPRESS_FAIL}
+        fi
+
+        return ${SUCCESS} #2
+    fi
+
+    log_info "$name url: $url"
+    log_info "begin to donwload $name ...."
+    rm -rf ${name}.tar.gz
+    command_exists "$cmd"
+    if [[ $? -eq 0 && "$cmd" == "axel" ]]; then
+        axel -n 10 --insecure --quite -o "$name.tar.gz" ${url}
+    else
+        curl -C - --insecure --silent ${url} -o "$name.tar.gz"
+    fi
+
+    if [[ $? -ne 0 ]]; then
+        log_error "download file $name failed !!"
+        rm -rf ${name}.tar.gz
+        return ${DOWNLOAD_FAIL}
+    fi
+
+    log_info "success to download $name"
+    rm -rf ${name} && mkdir ${name}
+    tar -zxf ${name}.tar.gz -C ${name} --strip-components 1
+    if [[ $? -ne 0 ]]; then
+        log_error "$name decopress failed"
+        rm -rf ${name} && rm -rf ${name}.tar.gz
+        return ${DECOMPRESS_FAIL}
+    fi
+
+    return ${SUCCESS} #3
+}
 
 command_exists() {
 	command -v "$@" > /dev/null 2>&1
 }
 
-check_param() {
+check_user() {
     if [[ "$(whoami)" != "root" ]]; then
-        echo
-        echo "ERROR: Please use root privileges to execute"
-        echo
+        log_error "please use root privileges to execute"
         exit
     fi
-
-    if ! command_exists axel; then
-        apt-get update && apt-get install axel -y
-    fi
 }
 
-download_binary() {
-    http="https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-${version}.tgz"
-    axel -n 100 "${http}" -o mongodb-${version}.tgz
+download_mongodb() {
+    url="https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-${version}.tgz"
+    common_download "mongodb" ${url} axel
+    return $?
+}
 
-    # 解压源文件
+add_service() {
+    # mkdir
     rm -rf ${installdir} && \
-    rm -rf ${workdir}/mongodb && \
-    mkdir -p ${workdir}/mongodb
-
-    # 构建mongodb
-    mkdir ${workdir}/mongodb-${version} && \
-    tar -zvxf mongodb-${version}.tgz -C ${workdir}/mongodb --strip-components 1 && \
-    mv ${workdir}/mongodb ${installdir}
-}
-
-mongodb_service() {
-    # 创建必要的目录
     mkdir -p ${installdir}/conf && \
     mkdir -p ${installdir}/data && \
     mkdir -p ${installdir}/logs
 
-    # 添加conf配置
-    cat > ${installdir}/conf/mongodb.conf << EOF
+    # mongo conf
+    read -r -d '' conf <<-'EOF'
 #pid file
-pidfilepath=${installdir}/logs/mongodb.pid
+pidfilepath=$dir/logs/mongodb.pid
 
 #log file
-logpath=${installdir}/logs/mongodb.log
+logpath=$dir/logs/mongodb.log
 
 #log append
 logappend=true
@@ -66,7 +131,7 @@ fork=true
 port=27017
 
 #data dir
-dbpath=${installdir}/data
+dbpath=$dir/data
 
 #record cpu use
 cpu=true
@@ -121,164 +186,277 @@ quota=true
 #
 EOF
 
-    # 添加service
-     cat > /etc/init.d/mongod <<- 'EOF'
-#!/bin/sh
+    regex='$dir'
+    repl="$installdir"
+    printf "%s" "${conf//$regex/$repl}" > ${installdir}/conf/mongodb.cnf
+
+    # mongo start script
+    read -r -d '' conf <<-'EOF'
+#!/bin/bash
 
 ### BEGIN INIT INFO
-# Provides:   mongod
-# Required-Start:    $local_fs $remote_fs $syslog $network ${NAME}d
-# Required-Stop:     $local_fs $remote_fs $syslog $network ${NAME}d
-# Default-Start:     2 3 4
-# Default-Stop:      0 1 5 6
-# Short-Description: starts the mongod server
-# Description:       starts mongod using start-stop-daemon
+# Provides:          mongodb
+# Required-Start:    $local_fs $syslog
+# Required-Stop:     $local_fs $syslog
+# Should-Start:      $named
+# Should-Stop:
+# Default-Start:     2
+# Default-Stop:      0 1  3 4 5 6
+# Short-Description: An object/document-oriented database
+# Description:       MongoDB scripts
 ### END INIT INFO
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-DAEMON=/opt/share/local/mongodb/bin/mongod
-CONF=/opt/share/local/mongodb/conf/mongodb.conf
-PID=/opt/share/local/mongodb/logs/mongodb.pid
-NAME=mongod
-DESC=mongod
+DAEMON=$dir/bin/mongod
+DESC=database
 
-test -x ${DAEMON} || exit 0
+# Default defaults.  Can be overridden by the /etc/default/$NAME
+NAME=mongodb
+CONF=$dir/conf/mongodb.conf
+RUNDIR=$dir/data
+PIDFILE=$dir/logs/${NAME}.pid
+ENABLE_MONGODB=yes
 
-. /lib/init/vars.sh
-. /lib/lsb/init-functions
-
-# Try to extract mongodb pidfilepath
-PID=$(cat ${CONF} | grep -Ev '^\s*#' | awk '{ split($0, arr, "="); if ( arr[1]=="pidfilepath" ) print arr[2] }' | head -n1)
-if [ -z "${PID}" ]; then
-    PID=/run/mongodb.pid
+# Include mongodb defaults if available
+if [ -f /etc/default/${NAME} ] ; then
+	. /etc/default/${NAME}
 fi
 
-#
-# Function that starts the daemon/service
-#
-do_start()
-{
-    # Return
-    #   0 if daemon has been started
-    #   1 if daemon was already running
-    #   2 if daemon could not be started
-    DAEMON_OPTS="-f ${CONF}"
-    start-stop-daemon --start --quiet --pidfile ${PID} --exec ${DAEMON} --test > /dev/null \
-        || return 1
-    start-stop-daemon --start --quiet --pidfile ${PID} --exec ${DAEMON} -- \
-        ${DAEMON_OPTS} 2>/dev/null \
-        || return 2
-}
+# Handle NUMA access to CPUs (SERVER-3574)
+# This verifies the existence of numactl as well as testing that the command works
+NUMACTL_ARGS="--interleave=all"
+if which numactl >/dev/null 2>/dev/null && numactl ${NUMACTL_ARGS} ls / >/dev/null 2>/dev/null
+then
+    NUMACTL="`which numactl` -- $NUMACTL_ARGS"
+    DAEMON_OPTS=${DAEMON_OPTS:-"--config $CONF"}
+else
+    NUMACTL=""
+    DAEMON_OPTS="-- "${DAEMON_OPTS:-"--config $CONF"}
+fi
 
-#
-# Function that stops the daemon/service
-#
-do_stop()
-{
-    # Return
-    #   0 if daemon has been stopped
-    #   1 if daemon was already stopped
-    #   2 if daemon could not be stopped
-    #   other if a failure occurred
-    start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile ${PID} --name ${NAME}
-    RETVAL="$?"
+if test ! -x ${DAEMON}; then
+    echo "Could not find $DAEMON"
+    exit 0
+fi
 
-    sleep 1
+if test "x$ENABLE_MONGODB" != "xyes"; then
+    exit 0
+fi
 
-    if [ "${RETVAL}" = "0" ] || [ "${RETVAL}" = "1" ]; then
-        if [ -e "${PID}" ]; then
-            rm -f ${PID}
-        fi
-    fi
+. /lib/lsb/init-functions
 
-    return "${RETVAL}"
-}
+STARTTIME=1
+DIETIME=10                   # Time to wait for the server to die, in seconds
+                            # If this value is set too low you might not
+                            # let some servers to die gracefully and
+                            # 'restart' will not work
 
-#
-# Function that sends a SIGHUP to the daemon/service
-#
-do_reload() {
-    start-stop-daemon --stop --signal HUP --quiet --pidfile ${PID} --name ${NAME}
+DAEMONUSER=${DAEMONUSER:-mongodb}
+DAEMON_OPTS=${DAEMON_OPTS:-"--unixSocketPrefix=$RUNDIR --config $CONF run"}
+
+set -e
+
+running_pid() {
+# Check if a given process pid's cmdline matches a given name
+    pid=$1
+    name=$2
+    [ -z "$pid" ] && return 1
+    [ ! -d /proc/${pid} ] &&  return 1
+    cmd=`cat /proc/${pid}/cmdline | tr "\000" "\n"|head -n 1 |cut -d : -f 1`
+    # Is this the expected server
+    [ "$cmd" != "$name" ] &&  return 1
     return 0
 }
 
-case "$1" in
-    start)
-        [ "${VERBOSE}" != no ] && log_daemon_msg "Starting ${DESC}" "${NAME}"
-        do_start
-        case "$?" in
-            0|1) [ "${VERBOSE}" != no ] && log_end_msg 0 ;;
-            2) [ "${VERBOSE}" != no ] && log_end_msg 1 ;;
-        esac
-        ;;
-    stop)
-        [ "${VERBOSE}" != no ] && log_daemon_msg "Stopping ${DESC}" "${NAME}"
-        do_stop
-        case "$?" in
-            0|1) [ "${VERBOSE}" != no ] && log_end_msg 0 ;;
-            2) [ "${VERBOSE}" != no ] && log_end_msg 1 ;;
-        esac
-        ;;
-    restart)
-        log_daemon_msg "Restarting ${DESC}" "${NAME}"
+running() {
+# Check if the process is running looking at /proc
+# (works for all users)
 
-        do_stop
-        case "$?" in
-            0|1)
-                do_start
-                case "$?" in
-                    0) log_end_msg 0 ;;
-                    1) log_end_msg 1 ;; # Old process is still running
-                    *) log_end_msg 1 ;; # Failed to start
-                esac
-                ;;
-            *)
-                # Failed to stop
+    # No pidfile, probably no daemon present
+    [ ! -f "$PIDFILE" ] && return 1
+    pid=`cat ${PIDFILE}`
+    running_pid ${pid} ${DAEMON} || return 1
+    return 0
+}
+
+start_server() {
+            test -e "$RUNDIR" || install -m 755 -o mongodb -g mongodb -d "$RUNDIR"
+# Start the process using the wrapper
+            start-stop-daemon --background --start --quiet --pidfile ${PIDFILE} \
+                        --make-pidfile --chuid ${DAEMONUSER} \
+                        --exec ${NUMACTL} ${DAEMON} ${DAEMON_OPTS}
+            errcode=$?
+	return ${errcode}
+}
+
+stop_server() {
+# Stop the process using the wrapper
+            start-stop-daemon --stop --quiet --pidfile ${PIDFILE} \
+                        --retry 300 \
+                        --user ${DAEMONUSER} \
+                        --exec ${DAEMON}
+            errcode=$?
+	return ${errcode}
+}
+
+force_stop() {
+# Force the process to die killing it manually
+	[ ! -e "$PIDFILE" ] && return
+	if running ; then
+		kill -15 ${pid}
+	# Is it really dead?
+		sleep "$DIETIME"s
+		if running ; then
+			kill -9 ${pid}
+			sleep "$DIETIME"s
+			if running ; then
+				echo "Cannot kill $NAME (pid=$pid)!"
+				exit 1
+			fi
+		fi
+	fi
+	rm -f ${PIDFILE}
+}
+
+
+case "$1" in
+  start)
+	log_daemon_msg "Starting $DESC" "$NAME"
+        # Check if it's running first
+        if running ;  then
+            log_progress_msg "apparently already running"
+            log_end_msg 0
+            exit 0
+        fi
+        if start_server ; then
+            # NOTE: Some servers might die some time after they start,
+            # this code will detect this issue if STARTTIME is set
+            # to a reasonable value
+            [ -n "$STARTTIME" ] && sleep ${STARTTIME} # Wait some time
+            if  running ;  then
+                # It's ok, the server started and is running
+                log_end_msg 0
+            else
+                # It is not running after we did start
                 log_end_msg 1
-                ;;
-        esac
+            fi
+        else
+            # Either we could not start it
+            log_end_msg 1
+        fi
+	;;
+  stop)
+        log_daemon_msg "Stopping $DESC" "$NAME"
+        if running ; then
+            # Only stop the server if we see it running
+			errcode=0
+            stop_server || errcode=$?
+            log_end_msg ${errcode}
+        else
+            # If it's not running don't do anything
+            log_progress_msg "apparently not running"
+            log_end_msg 0
+            exit 0
+        fi
         ;;
-    reload)
-        log_daemon_msg "Reloading ${DESC} configuration" "${NAME}"
-        do_reload
-        log_end_msg $?
+  force-stop)
+        # First try to stop gracefully the program
+        $0 stop
+        if running; then
+            # If it's still running try to kill it more forcefully
+            log_daemon_msg "Stopping (force) $DESC" "$NAME"
+			errcode=0
+            force_stop || errcode=$?
+            log_end_msg ${errcode}
+        fi
+	;;
+  restart|force-reload)
+        log_daemon_msg "Restarting $DESC" "$NAME"
+		errcode=0
+        stop_server || errcode=$?
+        # Wait some sensible amount, some server need this
+        [ -n "$DIETIME" ] && sleep ${DIETIME}
+        start_server || errcode=$?
+        [ -n "$STARTTIME" ] && sleep ${STARTTIME}
+        running || errcode=$?
+        log_end_msg ${errcode}
+	;;
+  status)
+
+        log_daemon_msg "Checking status of $DESC" "$NAME"
+        if running ;  then
+            log_progress_msg "running"
+            log_end_msg 0
+        else
+            log_progress_msg "apparently not running"
+            log_end_msg 1
+            exit 1
+        fi
         ;;
-    status)
-        status_of_proc -p ${PID} "${DAEMON}" "${NAME}" && exit 0 || exit $?
+  # MongoDB can't reload its configuration.
+  reload)
+        log_warning_msg "Reloading $NAME daemon: not implemented, as the daemon"
+        log_warning_msg "cannot re-read the config file (use restart)."
         ;;
-    *)
-        echo "Usage: ${NAME} {start|stop|restart|reload|status}" >&2
-        exit 3
-        ;;
+
+  *)
+	N=/etc/init.d/${NAME}
+	echo "Usage: $N {start|stop|force-stop|restart|force-reload|status}" >&2
+	exit 1
+	;;
 esac
 
-:
+exit 0
 EOF
 
-    # 权限
-    chmod a+x /etc/init.d/mongod && \
-    update-rc.d mongod defaults && \
-    update-rc.d mongod disable $(runlevel | cut -d ' ' -f2)
+    regex='$dir'
+    repl="$installdir"
+    printf "%s" "${conf//$regex/$repl}" > /etc/init.d/mongod
 
-    # 启动
-    service mongod start
+    # chmode
+    chmod a+x /etc/init.d/mongod && update-rc.d mongod defaults
+    if [[ $? -ne 0 ]]; then
+        log_error "update-rc failed"
+        return ${SERVICE_FAIL}
+    fi
+
+    # start
+    systemctl daemon-reload && service mongod start
+    if [[ $? -ne 0 ]]; then
+        log_error "service start mongod failed"
+        return ${SERVICE_FAIL}
+    fi
 
     # 测试
     if [[ $(pgrep mongod) ]]; then
-        echo
-        echo "INFO: MongoDB install successfully"
-        echo
+        log_info "mongodb install successfully !"
+        return ${SUCCESS}
     fi
+
+    return ${SERVICE_FAIL}
 }
 
 clean_file() {
-    rm -f ${workdir}/mongodb-${version}.tgz
+    rm -f ${workdir}/mongodb.tar.gz
+    rm -f ${workdir}/mongodb
 }
 
 do_install() {
-    check_param
-    download_binary
-    mongodb_service
+    check_user
+    if [[ $? -ne ${SUCCESS} ]]; then
+        return
+    fi
+
+    download_mongodb
+    if [[ $? -ne ${SUCCESS} ]]; then
+        return
+    fi
+
+    add_service
+    if [[ $? -ne ${SUCCESS} ]]; then
+        return
+    fi
+
     clean_file
 }
 
