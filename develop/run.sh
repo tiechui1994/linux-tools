@@ -128,3 +128,27 @@ else
     stop
     start
 fi
+
+
+case "$1" in
+    start)
+        log_info "starting ${NAME}"
+        pids=($(pgrep "$NAME"))
+        if [[ ${#pids[@]} = 0 ]]; then
+            start
+        fi
+        ;;
+    stop)
+        log_info "stopping ${NAME}"
+        stop
+        ;;
+    restart)
+        log_info "restart ${NAME}"
+        stop
+        start
+        ;;
+    *)
+        echo "Usage: ${NAME} {start|stop|restart}" >&2
+        exit 3
+        ;;
+esac
