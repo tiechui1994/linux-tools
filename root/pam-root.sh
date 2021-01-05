@@ -6,57 +6,68 @@
 # Date: 18-11-11
 #----------------------------------------------------
 
+# log
+log_error(){
+    red="\033[97;41m"
+    reset="\033[0m"
+    msg="[E] $@"
+    echo -e "$red$msg$reset"
+}
+log_warn(){
+    yellow="\033[90;43m"
+    reset="\033[0m"
+    msg="[W] $@"
+    echo -e "$yellow$msg$reset"
+}
+log_info() {
+    green="\033[97;42m"
+    reset="\033[0m"
+    msg="[I] $@"
+    echo -e "$green$msg$reset"
+}
+
 param_check() {
-    user=$(whoami)
-    # 参数检查
-    if [[ ${user} != "root" ]]; then
-        echo
-        echo "ERROR: Please execute the script with root privileges"
-        echo
-        exit
+    if [[ "$USER" != "root" ]]; then
+        log_error "please execute the script with root privileges"
+        return 1
     fi
 
-    if [[ $# -lt 1 ]]; then
-        echo
-        echo "Usage: sudo ./pam_root.sh user1 user2 ..."
-        echo
-
-        exit
-    fi
-
-    # 检查sudo文件
     if [[ ! -e /etc/pam.d/sudo ]]; then
-        echo
-        echo -e "ERROR: Unable to increase root privileges"
-        echo
-        exit
+        log_error "unable to increase root privileges"
+        return 1
     fi
 }
 
 add_user_to_wheel() {
-    param_check $*
-
-    check=$(cat /etc/pam.d/sudo | grep -E "^auth\s+sufficient\s+pam_wheel\.so\s+trust$")
-    if [[ -z "${check}" ]]; then
-        echo "auth  sufficient  pam_wheel.so    trust" >> /etc/pam.d/sudo
-        # sed -i '/condition/a\auth  sufficient  pam_wheel.so    trust' /etc/pam.d/sudo
+    # params
+    if [[ $# -lt 1 ]]; then
+        log_error "sudo ./pam-root.sh user1 user2 ..."
+        return 1
     fi
 
-    # 获取wheel组
-    if [[ ! $(cat /etc/group | grep -E "^wheel:") ]]; then
+    # check
+    grep -E "^auth\s+sufficient\s+pam_wheel\.so\s+trust$" /etc/pam.d/sudo
+    if [[ $? != 0 ]]; then
+        echo "auth  sufficient  pam_wheel.so    trust" >> /etc/pam.d/sudo
+    fi
+
+    # wheel group
+    grep -o -E "^wheel:" /etc/group
+    if [[ $? != 0 ]]; then
         groupadd wheel
     fi
 
-    # 添加用户到组wheel
+    # add user to wheel
     for i in $*
     do
-        if [[ $(cat /etc/passwd | grep -E "^$i:") ]]; then
+        grep -o -E "^$i:" /etc/passwd
+        if [[ $? != 0 ]]; then
             usermod -aG wheel ${i}
-            echo "Success add root privilege to $i"
+            log_info "success add root privilege to $i"
         else
-            echo "WARNING: The user $i does not exist !!!"
+            log_warn "the user $i does not exist"
         fi
     done
 }
 
-add_user_to_wheel $@
+param_check && add_user_to_wheel $@
