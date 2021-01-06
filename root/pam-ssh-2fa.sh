@@ -5,6 +5,7 @@
 # Contents: ssh pam 2fa
 # Date: 1/5/21
 # Doc: http://blog.gaoyuan.xyz/2017/01/05/2fa-a-programmers-perspective/
+# Doc: https://www.digitalocean.com/community/tutorials/how-to-set-up-multi-factor-authentication-for-ssh-on-ubuntu-16-04
 #----------------------------------------------------
 
 declare -r workdir=$(pwd)
