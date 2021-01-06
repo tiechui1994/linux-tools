@@ -6,17 +6,12 @@
 # Date: 18-12-10
 #----------------------------------------------------
 
-version=4.0.0
-workdir=$(pwd)
-installdir=/opt/share/local/redis
+declare -r version=4.0.0
+declare -r workdir=$(pwd)
+declare -r installdir=/opt/share/local/redis
 
-SUCCESS=0
-DECOMPRESS_FAIL=1
-DOWNLOAD_FAIL=2
-CONFIGURE_FAIL=3
-BUILD_FAIL=4
-INSTALL_FAIL=5
-SERVICE_FAIL=6
+declare -r success=0
+declare -r failure=1
 
 # log
 log_error(){
@@ -44,8 +39,8 @@ common_download() {
     cmd=$3
 
     if [[ -d "$name" ]]; then
-        log_info "$name has exist !!"
-        return ${SUCCESS} #1
+        log_info "$name has exist"
+        return ${success} #1
     fi
 
     if [[ -f "$name.tar.gz" && -n $(file "$name.tar.gz" | grep -o 'POSIX tar archive') ]]; then
@@ -54,16 +49,17 @@ common_download() {
         if [[ $? -ne 0 ]]; then
             log_error "$name decopress failed"
             rm -rf ${name} && rm -rf ${name}.tar.gz
-            return ${DECOMPRESS_FAIL}
+            return ${failure}
         fi
 
-        return ${SUCCESS} #2
+        return ${success} #2
     fi
 
     log_info "$name url: $url"
     log_info "begin to donwload $name ...."
     rm -rf ${name}.tar.gz
-    command_exists "$cmd"
+
+    command -v "$cmd" > /dev/null 2>&1
     if [[ $? -eq 0 && "$cmd" == "axel" ]]; then
         axel -n 10 --insecure --quite -o "$name.tar.gz" ${url}
     else
@@ -73,7 +69,7 @@ common_download() {
     if [[ $? -ne 0 ]]; then
         log_error "download file $name failed !!"
         rm -rf ${name}.tar.gz
-        return ${DOWNLOAD_FAIL}
+        return ${failure}
     fi
 
     log_info "success to download $name"
@@ -82,18 +78,12 @@ common_download() {
     if [[ $? -ne 0 ]]; then
         log_error "$name decopress failed"
         rm -rf ${name} && rm -rf ${name}.tar.gz
-        return ${DECOMPRESS_FAIL}
+        return ${failure}
     fi
-
-    return ${SUCCESS} #3
-}
-
-command_exists() {
-	command -v "$@" > /dev/null 2>&1
 }
 
 check_user() {
-    if [[ "$(whoami)" != "root" ]];then
+    if [[ "$(whoami)" != "root" ]]; then
         log_error "Please use root privileges to execute"
         exit
     fi
@@ -112,16 +102,14 @@ build() {
     cd ${workdir}/redis && make -j ${cpu}
     if [[ $? -ne 0 ]]; then
         log_error "build fail"
-        return ${BUILD_FAIL}
+        return ${failure}
     fi
 
     make PREFIX=${installdir} install
     if [[ $? -ne 0 ]]; then
         log_error "install failed"
-        return ${INSTALL_FAIL}
+        return ${failure}
     fi
-
-    return ${SUCCESS}
 }
 
 add_service() {
@@ -144,7 +132,7 @@ add_service() {
     ${installdir}/conf/redis.conf
     if [[ $? -ne 0 ]]; then
         log_error "update redis.conf failed"
-        return ${SERVICE_FAIL}
+        return ${failure}
     fi
 
 
@@ -216,7 +204,7 @@ EOF
     chmod a+x /etc/init.d/redis && update-rc.d redis defaults
     if [[ $? -ne 0 ]]; then
         log_error "update-rc failed"
-        return ${BUILD_FAIL}
+        return ${failure}
     fi
 
     # link
@@ -227,16 +215,16 @@ EOF
     systemctl daemon-reload && service redis start
     if [[ $? -ne 0 ]]; then
         log_error "service start nginx failed"
-        return ${SERVICE_FAIL}
+        return ${failure}
     fi
 
     # test
     if [[ -n $(netstat -an|grep '127.0.0.1:6379') ]];then
         log_info "redis installed successful !"
-        return ${SUCCESS}
+        return ${success}
     fi
 
-    return ${SERVICE_FAIL}
+    return ${failure}
 }
 
 clean_file() {
@@ -247,17 +235,17 @@ clean_file() {
 do_install() {
     check_user
     download_redis
-    if [[ $? -ne ${SUCCESS} ]]; then
+    if [[ $? -ne ${success} ]]; then
         return
     fi
 
     build
-    if [[ $? -ne ${SUCCESS} ]]; then
+    if [[ $? -ne ${success} ]]; then
         return
     fi
 
     add_service
-    if [[ $? -ne ${SUCCESS} ]]; then
+    if [[ $? -ne ${success} ]]; then
         return
     fi
 

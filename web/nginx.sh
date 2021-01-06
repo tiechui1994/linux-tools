@@ -7,18 +7,12 @@
 #----------------------------------------------------
 
 
-version=1.15.8
-workdir=$(pwd)
-installdir=/opt/local/nginx
+declare -r version=1.15.8
+declare -r workdir=$(pwd)
+declare -r installdir=/opt/local/nginx
 
-SUCCESS=0
-INVALID_USER=1
-DOWNLOAD_FAIL=2
-DECOMPRESS_FAIL=3
-CONFIGURE_FAIL=4
-BUILD_FAIL=5
-INSTALL_FAIL=6
-SERVICE_FAIL=7
+declare -r success=0
+declare -r failure=1
 
 # log
 log_error(){
@@ -46,8 +40,8 @@ common_download() {
     cmd=$3
 
     if [[ -d "$name" ]]; then
-        log_info "$name has exist !!"
-        return ${SUCCESS} #1
+        log_info "$name has exist"
+        return ${success} #1
     fi
 
     if [[ -f "$name.tar.gz" && -n $(file "$name.tar.gz" | grep -o 'POSIX tar archive') ]]; then
@@ -56,16 +50,17 @@ common_download() {
         if [[ $? -ne 0 ]]; then
             log_error "$name decopress failed"
             rm -rf ${name} && rm -rf ${name}.tar.gz
-            return ${DECOMPRESS_FAIL}
+            return ${failure}
         fi
 
-        return ${SUCCESS} #2
+        return ${success} #2
     fi
 
     log_info "$name url: $url"
     log_info "begin to donwload $name ...."
     rm -rf ${name}.tar.gz
-    command_exists "$cmd"
+
+    command -v "$cmd" > /dev/null 2>&1
     if [[ $? -eq 0 && "$cmd" == "axel" ]]; then
         axel -n 10 --insecure --quite -o "$name.tar.gz" ${url}
     else
@@ -75,7 +70,7 @@ common_download() {
     if [[ $? -ne 0 ]]; then
         log_error "download file $name failed !!"
         rm -rf ${name}.tar.gz
-        return ${DOWNLOAD_FAIL}
+        return ${failure}
     fi
 
     log_info "success to download $name"
@@ -84,23 +79,15 @@ common_download() {
     if [[ $? -ne 0 ]]; then
         log_error "$name decopress failed"
         rm -rf ${name} && rm -rf ${name}.tar.gz
-        return ${DECOMPRESS_FAIL}
+        return ${failure}
     fi
-
-    return ${SUCCESS} #3
-}
-
-command_exists() {
-	command -v "$@" > /dev/null 2>&1
 }
 
 check_user() {
     if [[ "$(whoami)" != "root" ]];then
         log_error "please use root privileges to execute"
-        return ${INVALID_USER}
+        return ${failure}
     fi
-
-    return ${SUCCESS}
 }
 
 insatll_depend() {
@@ -132,7 +119,6 @@ download_pcre() {
 download_zlib() {
     url="http://www.zlib.net/fossils/zlib-1.2.11.tar.gz"
     common_download "zlib" "$url" axel
-
     return $?
 }
 
@@ -148,13 +134,13 @@ download_proxy_connect() {
 donwnload_nginx_lua() {
     luajit="http://luajit.org/download/LuaJIT-2.0.5.tar.gz"
     common_download "luajit" "$luajit" axel
-    if [[ $? -ne ${SUCCESS} ]]; then
+    if [[ $? -ne ${success} ]]; then
         return $?
     fi
 
     ngx_devel_kit="https://codeload.github.com/vision5/ngx_devel_kit/tar.gz/v0.3.1"
     common_download "ngx_devel_kit" "$ngx_devel_kit"
-    if [[ $? -ne ${SUCCESS} ]]; then
+    if [[ $? -ne ${success} ]]; then
         return $?
     fi
 
@@ -169,14 +155,14 @@ build_luajit() {
     cd ${workdir}/luajit && make
     if [[ $? -ne 0 ]]; then
         log_error "make luajit fail"
-        return ${CONFIGURE_FAIL}
+        return ${failure}
     fi
 
     make install PREFIX=/usr/local/luajit
     if [[ $? -ne 0 ]]; then
         log_error "make install luajit fail"
         rm -rf /usr/local/luajit
-        return ${INSTALL_FAIL}
+        return ${failure}
     fi
 }
 
@@ -292,7 +278,7 @@ build() {
     --http-scgi-temp-path=${installdir}/tmp/scgi
     if [[ $? -ne 0 ]]; then
         log_error "configure fail"
-        return ${CONFIGURE_FAIL}
+        return ${failure}
     fi
 
     cpu=$(cat /proc/cpuinfo | grep 'processor' | wc -l)
@@ -304,16 +290,14 @@ build() {
     make -j ${cpu}
     if [[ $? -ne 0 ]]; then
         log_error "build fail"
-        return ${BUILD_FAIL}
+        return ${failure}
     fi
 
     make install
     if [[ $? -ne 0 ]]; then
         log_error "install failed"
-        return ${INSTALL_FAIL}
+        return ${failure}
     fi
-
-    return ${SUCCESS}
 }
 
 add_service() {
@@ -640,23 +624,23 @@ EOF
     chmod a+x /etc/init.d/nginx && update-rc.d nginx defaults
     if [[ $? -ne 0 ]]; then
         log_error "update-rc failed"
-        return ${SERVICE_FAIL}
+        return ${failure}
     fi
 
     # start up
     systemctl daemon-reload && service nginx start
     if [[ $? -ne 0 ]]; then
         log_error "service start nginx failed"
-        return ${SERVICE_FAIL}
+        return ${failure}
     fi
 
     # test
     if [[ $(pgrep nginx) ]]; then
         log_info "nginx install successfully !"
-        return ${SUCCESS}
+        return ${success}
     fi
 
-    return ${SERVICE_FAIL}
+    return ${failure}
 }
 
 clean_file() {
@@ -673,54 +657,54 @@ clean_file() {
 
 do_install(){
      check_user
-     if [[ $? -ne ${SUCCESS} ]]; then
+     if [[ $? -ne ${success} ]]; then
         return
      fi
 
      insatll_depend
 
      download_openssl
-     if [[ $? -ne ${SUCCESS} ]]; then
+     if [[ $? -ne ${success} ]]; then
         return
      fi
 
      download_pcre
-     if [[ $? -ne ${SUCCESS} ]]; then
+     if [[ $? -ne ${success} ]]; then
         return
      fi
 
      download_zlib
-     if [[ $? -ne ${SUCCESS} ]]; then
+     if [[ $? -ne ${success} ]]; then
         return
      fi
 
      download_proxy_connect
-     if [[ $? -ne ${SUCCESS} ]]; then
+     if [[ $? -ne ${success} ]]; then
         return
      fi
 
      donwnload_nginx_lua
-     if [[ $? -ne ${SUCCESS} ]]; then
+     if [[ $? -ne ${success} ]]; then
         return
      fi
 
      download_nginx
-     if [[ $? -ne ${SUCCESS} ]]; then
+     if [[ $? -ne ${success} ]]; then
         return
      fi
 
      build_luajit
-     if [[ $? -ne ${SUCCESS} ]]; then
+     if [[ $? -ne ${success} ]]; then
         return
      fi
 
      build
-     if [[ $? -ne ${SUCCESS} ]]; then
+     if [[ $? -ne ${success} ]]; then
         return
      fi
 
      add_service
-     if [[ $? -ne ${SUCCESS} ]]; then
+     if [[ $? -ne ${success} ]]; then
         return
      fi
 
