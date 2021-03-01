@@ -131,6 +131,7 @@ download_proxy_connect() {
 }
 
 # nginx lua
+# doc: https://github.com/openresty/lua-nginx-module#installation
 donwnload_nginx_lua() {
     luajit="http://luajit.org/download/LuaJIT-2.0.5.tar.gz"
     common_download "luajit" "$luajit" axel
@@ -149,8 +150,6 @@ donwnload_nginx_lua() {
     return $?
 }
 
-# nginx_lua
-# doc: https://github.com/openresty/lua-nginx-module#installation
 build_luajit() {
     cd ${workdir}/luajit && make
     if [[ $? -ne 0 ]]; then
@@ -158,10 +157,10 @@ build_luajit() {
         return ${failure}
     fi
 
-    make install PREFIX=/usr/local/luajit
+    make install PREFIX=/tmp/luajit
     if [[ $? -ne 0 ]]; then
         log_error "make install luajit fail"
-        rm -rf /usr/local/luajit
+        rm -rf /tmp/luajit
         return ${failure}
     fi
 }
@@ -169,8 +168,9 @@ build_luajit() {
 
 build() {
     # create nginx dir
-    rm -rf  ${installdir} && \
+    rm -rf ${installdir} && \
     mkdir -p ${installdir} && \
+    mkdir -p ${installdir}/thirdpart && \
     mkdir -p ${installdir}/tmp/client && \
     mkdir -p ${installdir}/tmp/proxy && \
     mkdir -p ${installdir}/tmp/fcgi && \
@@ -235,8 +235,9 @@ build() {
     fi
 
     # nginx lua
-    export LUAJIT_LIB="/usr/local/luajit/lib"
-    export LUAJIT_INC="/usr/local/luajit/include/luajit-2.0"
+    mv /tmp/luajit ${installdir}/thirdpart/
+    export LUAJIT_LIB="${installdir}/thirdpart/luajit/lib"
+    export LUAJIT_INC="${installdir}/thirdpart/luajit/include/luajit-2.0"
 
     ./configure \
     --user=www  \
