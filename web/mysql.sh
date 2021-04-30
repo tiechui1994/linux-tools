@@ -7,9 +7,9 @@
 #----------------------------------------------------
 
 
-version=5.7.30
+version=5.7.32
 workdir=$(pwd)
-installdir=/opt/local/mysql
+installdir=/tmp/mysql
 
 SUCCESS=0
 CMAKE_FAIL=1
@@ -153,7 +153,7 @@ build() {
     -DMYSQL_DATADIR=${installdir}/data \
     -DSYSCONFDIR=${installdir}/conf \
     -DDOWNLOAD_BOOST=1 \
-    -DWITH_BOOST=${workdir}/mysql-${version}/boost \
+    -DWITH_BOOST=${workdir}/mysql/boost \
     -DWITH_INNOBASE_STORAGE_ENGINE=1 \
     -DWITH_PARTITION_STORAGE_ENGINE=1 \
     -DWITH_FEDERATED_STORAGE_ENGINE=1 \
