@@ -122,14 +122,14 @@ install() {
 
 add_service() {
     # mongo conf
-    if [[ "${version}" > "4.2" ]]; then
-        read -r -d '' conf <<-'EOF'
+    read -r -d '' conf <<-'EOF'
 # for documentation of all options, see:
 #   http://docs.mongodb.org/manual/reference/configuration-options/
 
 # Where and how to store data.
 storage:
   dbPath: $dir/data
+  directoryPerDB: true
   journal:
     enabled: true
     #engine:
@@ -146,11 +146,14 @@ systemLog:
 net:
   port: 27017
   bindIp: 127.0.0.1
+  unixDomainSocket:
+    enabled: true
 
 # how the process runs
 processManagement:
   timeZoneInfo: /usr/share/zoneinfo
   fork: true
+  pidFilePath: $dir/logs/mongodb.pid
 
 #security:
 
@@ -166,79 +169,6 @@ processManagement:
 
 #snmp:
 EOF
-    else
-        read -r -d '' conf <<-'EOF'
-#pid file
-pidfilepath=$dir/logs/mongodb.pid
-
-#log file
-logpath=$dir/logs/mongodb.log
-
-#log append
-logappend=true
-
-#run as deamon
-fork=true
-
-#port
-port=27017
-
-#data dir
-dbpath=$dir/data
-
-#record cpu use
-cpu=true
-
-#是否以安全认证方式运行，默认为非安全模式，不进行认证
-noauth=true
-#auth = true
-
-#详细记录输出
-verbose=true
-
-#Enable db quota management
-quota=true
-
-# Set oplogging level where n is
-#   0=off (default)
-#   1=W
-#   2=R
-#   3=both
-#   7=W+some reads
-#diaglog=0
-
-#Diagnostic/debugging option 动态调试项
-#nocursors=true
-#
-#Ignore query hints 忽略查询提示
-#nohints=true
-#
-#禁用http界面，默认为localhost:28017
-#nohttpinterface=true
-#
-#关闭服务器端脚本，这将极大的限制功能
-#noscripting=true
-#
-#关闭扫描表，任何查询将会是扫描失败
-#notablescan=true
-#
-#关闭数据文件预分配
-#noprealloc=true
-#
-#为新数据库指定.ns文件的大小,单位:MB
-#nssize=
-#
-#Replication Options 复制选项
-#replSet=setname
-#
-#maximum size in megabytes for replication operation log
-#oplogSize=1024
-#
-#指定存储身份验证信息的密钥文件的路径
-#keyFile=/path/to/keyfile
-#
-EOF
-    fi
 
     regex='$dir'
     repl="$installdir"
