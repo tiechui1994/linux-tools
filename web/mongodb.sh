@@ -6,18 +6,12 @@
 # Date: 19-1-18
 #----------------------------------------------------
 
-version=3.6.9
-workdir=$(pwd)
-installdir=/opt/local/mongodb
+declare -r version=4.2.14
+declare -r workdir=$(pwd)
+declare -r installdir=/opt/share/local/mongodb
 
-SUCCESS=0
-CMAKE_FAIL=1
-MAKE_FAIL=2
-INSTALL_FAIL=3
-DECOMPRESS_FAIL=4
-DOWNLOAD_FAIL=5
-INIT_FAIL=6
-SERVICE_FAIL=7
+declare -r SUCCESS=0
+declare -r FAILURE=1
 
 # log
 log_error(){
@@ -39,7 +33,7 @@ log_info() {
     echo -e "$green$msg$reset"
 }
 
-common_download() {
+common_download_tgz() {
     name=$1
     url=$2
     cmd=$3
@@ -55,7 +49,7 @@ common_download() {
         if [[ $? -ne 0 ]]; then
             log_error "$name decopress failed"
             rm -rf ${name} && rm -rf ${name}.tar.gz
-            return ${DECOMPRESS_FAIL}
+            return ${FAILURE}
         fi
 
         return ${SUCCESS} #2
@@ -74,7 +68,7 @@ common_download() {
     if [[ $? -ne 0 ]]; then
         log_error "download file $name failed !!"
         rm -rf ${name}.tar.gz
-        return ${DOWNLOAD_FAIL}
+        return ${FAILURE}
     fi
 
     log_info "success to download $name"
@@ -83,7 +77,7 @@ common_download() {
     if [[ $? -ne 0 ]]; then
         log_error "$name decopress failed"
         rm -rf ${name} && rm -rf ${name}.tar.gz
-        return ${DECOMPRESS_FAIL}
+        return ${FAILURE}
     fi
 
     return ${SUCCESS} #3
@@ -100,21 +94,80 @@ check_user() {
     fi
 }
 
-download_mongodb() {
-    url="https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-${version}.tgz"
-    common_download "mongodb" ${url} axel
-    return $?
-}
+install() {
+    getent passwd mongodb >/dev/null 2>&1
+    if [[ $? -ne ${SUCCESS} ]]; then
+        adduser --system --no-create-home mongodb
+        addgroup --system mongodb
+        adduser mongodb mongodb
+    fi
+    if [[ "${version}" > "4.2" ]]; then
+        url="https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1604-${version}.tgz"
+        common_download_tgz "mongodb" ${url}
+    else
+        url="https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-${version}.tgz"
+        common_download_tgz "mongodb" ${url} axel
+    fi
 
-add_service() {
-    # mkdir
+    if [[ $? -ne ${SUCCESS} ]]; then
+        return $?
+    fi
+
     rm -rf ${installdir} && \
     mkdir -p ${installdir}/conf && \
     mkdir -p ${installdir}/data && \
     mkdir -p ${installdir}/logs
+    cp -r ${workdir}/mongodb/* ${installdir}/
+}
 
+add_service() {
     # mongo conf
-    read -r -d '' conf <<-'EOF'
+    if [[ "${version}" > "4.2" ]]; then
+        read -r -d '' conf <<-'EOF'
+# for documentation of all options, see:
+#   http://docs.mongodb.org/manual/reference/configuration-options/
+
+# Where and how to store data.
+storage:
+  dbPath: $dir/data
+  journal:
+    enabled: true
+    #engine:
+    #mmapv1:
+    #wiredTiger:
+
+# where to write logging data.
+systemLog:
+  destination: file
+  logAppend: true
+  path: $dir/logs/mongodb.log
+
+# network interfaces
+net:
+  port: 27017
+  bindIp: 127.0.0.1
+
+# how the process runs
+processManagement:
+  timeZoneInfo: /usr/share/zoneinfo
+  fork: true
+
+#security:
+
+#operationProfiling:
+
+#replication:
+
+#sharding:
+
+## Enterprise-Only Options:
+
+#auditLog:
+
+#snmp:
+EOF
+    else
+        read -r -d '' conf <<-'EOF'
 #pid file
 pidfilepath=$dir/logs/mongodb.pid
 
@@ -185,10 +238,11 @@ quota=true
 #keyFile=/path/to/keyfile
 #
 EOF
+    fi
 
     regex='$dir'
     repl="$installdir"
-    printf "%s" "${conf//$regex/$repl}" > ${installdir}/conf/mongodb.cnf
+    printf "%s" "${conf//$regex/$repl}" > ${installdir}/conf/mongodb.conf
 
     # mongo start script
     read -r -d '' conf <<-'EOF'
@@ -196,13 +250,11 @@ EOF
 
 ### BEGIN INIT INFO
 # Provides:          mongodb
-# Required-Start:    $local_fs $syslog
-# Required-Stop:     $local_fs $syslog
+# Required-Start:    $local_fs
+# Required-Stop:     $local_fs
 # Should-Start:      $named
-# Should-Stop:
 # Default-Start:     2
 # Default-Stop:      0 1  3 4 5 6
-# Short-Description: An object/document-oriented database
 # Description:       MongoDB scripts
 ### END INIT INFO
 
@@ -216,11 +268,6 @@ CONF=$dir/conf/mongodb.conf
 RUNDIR=$dir/data
 PIDFILE=$dir/logs/${NAME}.pid
 ENABLE_MONGODB=yes
-
-# Include mongodb defaults if available
-if [ -f /etc/default/${NAME} ] ; then
-	. /etc/default/${NAME}
-fi
 
 # Handle NUMA access to CPUs (SERVER-3574)
 # This verifies the existence of numactl as well as testing that the command works
@@ -246,22 +293,22 @@ fi
 . /lib/lsb/init-functions
 
 STARTTIME=1
-DIETIME=10                   # Time to wait for the server to die, in seconds
+DIETIME=10                  # Time to wait for the server to die, in seconds
                             # If this value is set too low you might not
                             # let some servers to die gracefully and
                             # 'restart' will not work
 
 DAEMONUSER=${DAEMONUSER:-mongodb}
-DAEMON_OPTS=${DAEMON_OPTS:-"--unixSocketPrefix=$RUNDIR --config $CONF run"}
+DAEMON_OPTS=${DAEMON_OPTS:-"--unixSocketPrefix=$RUNDIR --config $CONF"}
 
 set -e
 
 running_pid() {
-# Check if a given process pid's cmdline matches a given name
+    # Check if a given process pid's cmdline matches a given name
     pid=$1
     name=$2
     [ -z "$pid" ] && return 1
-    [ ! -d /proc/${pid} ] &&  return 1
+    [ ! -d /proc/${pid} ] && return 1
     cmd=`cat /proc/${pid}/cmdline | tr "\000" "\n"|head -n 1 |cut -d : -f 1`
     # Is this the expected server
     [ "$cmd" != "$name" ] &&  return 1
@@ -269,42 +316,44 @@ running_pid() {
 }
 
 running() {
-# Check if the process is running looking at /proc
-# (works for all users)
-
+    # Check if the process is running looking at /proc
+    # (works for all users)
     # No pidfile, probably no daemon present
     [ ! -f "$PIDFILE" ] && return 1
     pid=`cat ${PIDFILE}`
+    log_daemon_msg "parent pid: $pid"
     running_pid ${pid} ${DAEMON} || return 1
     return 0
 }
 
 start_server() {
-            test -e "$RUNDIR" || install -m 755 -o mongodb -g mongodb -d "$RUNDIR"
-# Start the process using the wrapper
-            start-stop-daemon --background --start --quiet --pidfile ${PIDFILE} \
-                        --make-pidfile --chuid ${DAEMONUSER} \
-                        --exec ${NUMACTL} ${DAEMON} ${DAEMON_OPTS}
-            errcode=$?
+    test -e "$RUNDIR" || install -m 755 -o mongodb -g mongodb -d "$RUNDIR"
+    log_daemon_msg "test status: $?"
+    # Start the process using the wrapper
+    log_daemon_msg "args: ${DAEMON_OPTS}"
+    start-stop-daemon --background --start --pidfile ${PIDFILE} --make-pidfile \
+        --exec ${NUMACTL} ${DAEMON} ${DAEMON_OPTS}
+    errcode=$?
+    log_daemon_msg "start-stop-daemon status: $errcode"
 	return ${errcode}
 }
 
 stop_server() {
-# Stop the process using the wrapper
-            start-stop-daemon --stop --quiet --pidfile ${PIDFILE} \
-                        --retry 300 \
-                        --user ${DAEMONUSER} \
-                        --exec ${DAEMON}
-            errcode=$?
+    # Stop the process using the wrapper
+    start-stop-daemon --stop --pidfile ${PIDFILE} \
+        --retry 300 \
+        --user ${DAEMONUSER} \
+        --exec ${DAEMON}
+    errcode=$?
 	return ${errcode}
 }
 
 force_stop() {
-# Force the process to die killing it manually
+    # Force the process to die killing it manually
 	[ ! -e "$PIDFILE" ] && return
 	if running ; then
 		kill -15 ${pid}
-	# Is it really dead?
+	    # Is it really dead?
 		sleep "$DIETIME"s
 		if running ; then
 			kill -9 ${pid}
@@ -318,10 +367,9 @@ force_stop() {
 	rm -f ${PIDFILE}
 }
 
-
 case "$1" in
   start)
-	log_daemon_msg "Starting $DESC" "$NAME"
+	    log_daemon_msg "Starting $DESC" "$NAME"
         # Check if it's running first
         if running ;  then
             log_progress_msg "apparently already running"
@@ -329,9 +377,11 @@ case "$1" in
             exit 0
         fi
         if start_server ; then
+            log_daemon_msg "start_server $DESC" "$NAME"
             # NOTE: Some servers might die some time after they start,
             # this code will detect this issue if STARTTIME is set
             # to a reasonable value
+            log_daemon_msg "sleep: $STARTTIME"
             [ -n "$STARTTIME" ] && sleep ${STARTTIME} # Wait some time
             if  running ;  then
                 # It's ok, the server started and is running
@@ -382,7 +432,6 @@ case "$1" in
         log_end_msg ${errcode}
 	;;
   status)
-
         log_daemon_msg "Checking status of $DESC" "$NAME"
         if running ;  then
             log_progress_msg "running"
@@ -392,13 +441,11 @@ case "$1" in
             log_end_msg 1
             exit 1
         fi
-        ;;
-  # MongoDB can't reload its configuration.
+    ;;
   reload)
-        log_warning_msg "Reloading $NAME daemon: not implemented, as the daemon"
-        log_warning_msg "cannot re-read the config file (use restart)."
-        ;;
-
+       log_warning_msg "Reloading $NAME daemon: not implemented, as the daemon"
+       log_warning_msg "cannot re-read the config file (use restart)."
+    ;;
   *)
 	N=/etc/init.d/${NAME}
 	echo "Usage: $N {start|stop|force-stop|restart|force-reload|status}" >&2
@@ -417,14 +464,14 @@ EOF
     chmod a+x /etc/init.d/mongod && update-rc.d mongod defaults
     if [[ $? -ne 0 ]]; then
         log_error "update-rc failed"
-        return ${SERVICE_FAIL}
+        return ${FAILURE}
     fi
 
     # start
     systemctl daemon-reload && service mongod start
     if [[ $? -ne 0 ]]; then
         log_error "service start mongod failed"
-        return ${SERVICE_FAIL}
+        return ${FAILURE}
     fi
 
     # 测试
@@ -433,12 +480,12 @@ EOF
         return ${SUCCESS}
     fi
 
-    return ${SERVICE_FAIL}
+    return ${FAILURE}
 }
 
 clean_file() {
     rm -f ${workdir}/mongodb.tar.gz
-    rm -f ${workdir}/mongodb
+    rm -rf ${workdir}/mongodb
 }
 
 do_install() {
@@ -447,7 +494,7 @@ do_install() {
         return
     fi
 
-    download_mongodb
+    install
     if [[ $? -ne ${SUCCESS} ]]; then
         return
     fi

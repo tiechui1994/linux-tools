@@ -415,11 +415,10 @@ EOF
 
 ### BEGIN INIT INFO
 # Provides:   nginx
-# Required-Start:    $local_fs $syslog
-# Required-Stop:     $local_fs $syslog
+# Required-Start:    $local_fs
+# Required-Stop:     $local_fs
 # Default-Start:     2
 # Default-Stop:      0 1 3 4 5 6
-# Short-Description: starts the nginx web server
 # Description:       starts nginx using start-stop-daemon
 ### END INIT INFO
 
@@ -457,9 +456,9 @@ do_start()
     #   0 if daemon has been started
     #   1 if daemon was already running
     #   2 if daemon could not be started
-    start-stop-daemon --start --quiet --pidfile ${PID} --exec ${DAEMON} --test > /dev/null \
+    start-stop-daemon --start --pidfile ${PID} --make-pidfile --exec ${DAEMON} --test > /dev/null \
         || return 1
-    start-stop-daemon --start --quiet --pidfile ${PID} --exec ${DAEMON} -- \
+    start-stop-daemon --start --pidfile ${PID} --make-pidfile --exec ${DAEMON} -- \
         ${DAEMON_OPTS} 2>/dev/null \
         || return 2
 }
@@ -478,7 +477,7 @@ do_stop()
     #   1 if daemon was already stopped
     #   2 if daemon could not be stopped
     #   other if a failure occurred
-    start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile ${PID} --name ${NAME}
+    start-stop-daemon --stop --retry=TERM/30/KILL/5 --pidfile ${PID} --name ${NAME}
     RETVAL="$?"
 
     sleep 1
@@ -489,7 +488,7 @@ do_stop()
 # Function that sends a SIGHUP to the daemon/service
 #
 do_reload() {
-    start-stop-daemon --stop --signal HUP --quiet --pidfile ${PID} --name ${NAME}
+    start-stop-daemon --stop --signal HUP --pidfile ${PID} --name ${NAME}
     return 0
 }
 
@@ -497,7 +496,7 @@ do_reload() {
 # Rotate log files
 #
 do_rotate() {
-    start-stop-daemon --stop --signal USR1 --quiet --pidfile ${PID} --name ${NAME}
+    start-stop-daemon --stop --signal USR1 --pidfile ${PID} --name ${NAME}
     return 0
 }
 

@@ -146,7 +146,6 @@ add_service() {
 # Required-Stop:     $local_fs $syslog
 # Default-Start:     2
 # Default-Stop:      0 1 3 4 5 6
-# Short-Description: redis service
 # Description:       redis service daemon
 ### END INIT INFO
 

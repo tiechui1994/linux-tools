@@ -4,17 +4,12 @@
 # ubuntu16.04安装 postgresql
 #==================================================================
 
-version=10.5
-workdir=$(pwd)
-installdir=/opt/local/pgsql
+declare -r version=10.5
+declare -r workdir=$(pwd)
+declare -r installdir=/opt/local/pgsql
 
-SUCCESS=0
-DECOMPRESS_FAIL=1
-DOWNLOAD_FAIL=2
-CONFIGURE_FAIL=3
-BUILD_FAIL=4
-MAKE_FAIL=5
-INSTALL_FAIL=6
+declare -r SUCCESS=0
+declare -r FAILURE=1
 
 
 # log
@@ -53,7 +48,7 @@ common_download() {
         if [[ $? -ne 0 ]]; then
             log_error "$name decopress failed"
             rm -rf ${name} && rm -rf ${name}.tar.gz
-            return ${DECOMPRESS_FAIL}
+            return ${FAILURE}
         fi
 
         return ${SUCCESS} #2
@@ -72,7 +67,7 @@ common_download() {
     if [[ $? -ne 0 ]]; then
         log_error "download file $name failed !!"
         rm -rf ${name}.tar.gz
-        return ${DOWNLOAD_FAIL}
+        return ${FAILURE}
     fi
 
     log_info "success to download $name"
@@ -81,7 +76,7 @@ common_download() {
     if [[ $? -ne 0 ]]; then
         log_error "$name decopress failed"
         rm -rf ${name} && rm -rf ${name}.tar.gz
-        return ${DECOMPRESS_FAIL}
+        return ${FAILURE}
     fi
 
     return ${SUCCESS} #3
@@ -110,7 +105,7 @@ build() {
         libxml2 libxml2-dev libxslt-dev bison tcl tcl-dev flex -y
     if [[ $? -ne 0 ]]; then
         log_error "install depend failed..."
-        return ${INSTALL_FAIL}
+        return ${FAILURE}
     fi
 
     rm -rf ${installdir}
@@ -126,7 +121,7 @@ build() {
     --with-libxslt
     if [[ $? -ne ${SUCCESS} ]]; then
         log_error "configure failed..."
-        return ${CONFIGURE_FAIL}
+        return ${FAILURE}
     fi
 
     # make and install
@@ -134,13 +129,13 @@ build() {
     make -j ${cpu}
     if [[ $? -ne 0 ]]; then
         log_error "configure failed..."
-        return ${MAKE_FAIL}
+        return ${FAILURE}
     fi
 
     make install
     if [[ $? -ne 0 ]]; then
         log_error "configure failed..."
-        return ${INSTALL_FAIL}
+        return ${FAILURE}
     fi
 
     return ${SUCCESS}

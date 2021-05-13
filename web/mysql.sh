@@ -7,18 +7,12 @@
 #----------------------------------------------------
 
 
-version=5.7.32
-workdir=$(pwd)
-installdir=/tmp/mysql
+declare -r version=5.7.32
+declare -r workdir=$(pwd)
+declare -r installdir=/tmp/mysql
 
-SUCCESS=0
-CMAKE_FAIL=1
-MAKE_FAIL=2
-INSTALL_FAIL=3
-DECOMPRESS_FAIL=4
-DOWNLOAD_FAIL=5
-INIT_FAIL=6
-SERVICE_FAIL=7
+declare -r SUCCESS=0
+declare -r FAILURE=1
 
 # log
 log_error(){
@@ -56,7 +50,7 @@ common_download() {
         if [[ $? -ne 0 ]]; then
             log_error "$name decopress failed"
             rm -rf ${name} && rm -rf ${name}.tar.gz
-            return ${DECOMPRESS_FAIL}
+            return ${FAILURE}
         fi
 
         return ${SUCCESS} #2
@@ -75,7 +69,7 @@ common_download() {
     if [[ $? -ne 0 ]]; then
         log_error "download file $name failed !!"
         rm -rf ${name}.tar.gz
-        return ${DOWNLOAD_FAIL}
+        return ${FAILURE}
     fi
 
     log_info "success to download $name"
@@ -84,7 +78,7 @@ common_download() {
     if [[ $? -ne 0 ]]; then
         log_error "$name decopress failed"
         rm -rf ${name} && rm -rf ${name}.tar.gz
-        return ${DECOMPRESS_FAIL}
+        return ${FAILURE}
     fi
 
     return ${SUCCESS} #3
@@ -125,7 +119,7 @@ build() {
     apt-get install cmake build-essential libncurses5-dev bison libssl-dev -y
     if [[ $? -ne 0 ]]; then
         log_error "install depency fail"
-        return ${INSTALL_FAIL}
+        return ${FAILURE}
     fi
 
     # remove old directory
@@ -165,7 +159,7 @@ build() {
     -DDEFAULT_COLLATION=utf8_general_ci
     if [[ $? -ne 0 ]]; then
         log_error "cmake fail, plaease check and try again.."
-        return ${CMAKE_FAIL}
+        return ${FAILURE}
     fi
 
     # make
@@ -173,13 +167,13 @@ build() {
     make -j ${cpu}
     if [[ $? -ne 0 ]]; then
         log_error "make fail, plaease check and try again..."
-        return ${MAKE_FAIL}
+        return ${FAILURE}
     fi
 
     make install
     if [[ $? -ne 0 ]]; then
         log_error "make install fail, plaease check and try again..."
-        return ${INSTALL_FAIL}
+        return ${FAILURE}
     fi
 
     return ${SUCCESS}
@@ -236,7 +230,7 @@ EOF
     chmod a+x /etc/init.d/mysqld && update-rc.d mysqld defaults
     if [[ $? -ne 0 ]]; then
         log_error "update-rc failed"
-        return ${SERVICE_FAIL}
+        return ${FAILURE}
     fi
 
     return ${SUCCESS}
@@ -254,7 +248,7 @@ init_db() {
     --datadir=${installdir}/data
     if [[ $? -ne 0 ]]; then
         log_error "mysqld initialize failed"
-        return ${INIT_FAIL}
+        return ${FAILURE}
     fi
 
     # check logs/mysql.err.
@@ -264,14 +258,14 @@ init_db() {
         log_error "error message:"
         log_error "$error"
         log_error "the detail message in file $installdir/logs/mysql.err"
-        return ${INIT_FAIL}
+        return ${FAILURE}
     fi
 
     # start mysqld service
     systemctl daemon-reload && service mysqld start
     if [[ $? -ne 0 ]]; then
         log_error "mysqld service start failed, please check and trg again..."
-        return ${SERVICE_FAIL}
+        return ${FAILURE}
     fi
 
     # check password

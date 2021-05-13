@@ -6,15 +6,11 @@
 # Date: 19-1-18
 #----------------------------------------------------
 
-version=2.16.1
-workdir=$(pwd)
+declare -r version=2.16.1
+declare -r workdir=$(pwd)
 
-SUCCESS=0
-DECOMPRESS_FAIL=1
-DOWNLOAD_FAIL=2
-CONFIGURE_FAIL=3
-BUILD_FAIL=4
-INSTALL_FAIL=5
+declare -r SUCCESS=0
+declare -r FAILURE=1
 
 # log
 log_error(){
@@ -56,7 +52,7 @@ common_download() {
         if [[ $? -ne 0 ]]; then
             log_error "$name decopress failed"
             rm -rf ${name} && rm -rf ${name}.tar.gz
-            return ${DECOMPRESS_FAIL}
+            return ${FAILURE}
         fi
 
         return ${SUCCESS} #2
@@ -75,7 +71,7 @@ common_download() {
     if [[ $? -ne 0 ]]; then
         log_error "download file $name failed !!"
         rm -rf ${name}.tar.gz
-        return ${DOWNLOAD_FAIL}
+        return ${FAILURE}
     fi
 
     log_info "success to download $name"
@@ -84,7 +80,7 @@ common_download() {
     if [[ $? -ne 0 ]]; then
         log_error "$name decopress failed"
         rm -rf ${name} && rm -rf ${name}.tar.gz
-        return ${DECOMPRESS_FAIL}
+        return ${FAILURE}
     fi
 
     return ${SUCCESS} #3
@@ -120,20 +116,20 @@ build() {
     cd ${workdir}/axel && ./configure
     if [[ $? -ne 0 ]]; then
         log_error "configure fail"
-        return ${CONFIGURE_FAIL}
+        return ${FAILURE}
     fi
 
     cpu=$(cat /proc/cpuinfo | grep 'processor' | wc -l)
     make -j ${cpu}
     if [[ $? -ne 0 ]]; then
         log_error "build fail"
-        return ${BUILD_FAIL}
+        return ${FAILURE}
     fi
 
     make install
     if [[ $? -ne 0 ]]; then
         log_error "install failed"
-        return ${INSTALL_FAIL}
+        return ${FAILURE}
     fi
 
     # check
@@ -142,7 +138,7 @@ build() {
         return ${SUCCESS}
     else
         log_error "the axel install failed"
-        return ${INSTALL_FAIL}
+        return ${FAILURE}
     fi
 }
 
