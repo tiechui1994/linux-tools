@@ -8,7 +8,7 @@
 
 declare -r version=4.2.14
 declare -r workdir=$(pwd)
-declare -r installdir=/opt/share/local/mongodb
+declare -r installdir=/opt/local/mongodb
 
 declare -r SUCCESS=0
 declare -r FAILURE=1
@@ -95,6 +95,9 @@ check_user() {
 }
 
 install() {
+    apt-get update && \
+    apt-get install libssl-dev -y
+
     getent passwd mongodb >/dev/null 2>&1
     if [[ $? -ne ${SUCCESS} ]]; then
         adduser --system --no-create-home mongodb
@@ -102,7 +105,7 @@ install() {
         adduser mongodb mongodb
     fi
     if [[ "${version}" > "4.2" ]]; then
-        url="https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1604-${version}.tgz"
+        url="https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu1804-${version}.tgz"
         common_download_tgz "mongodb" ${url}
     else
         url="https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-${version}.tgz"
@@ -223,10 +226,10 @@ fi
 . /lib/lsb/init-functions
 
 STARTTIME=1
-DIETIME=10                  # Time to wait for the server to die, in seconds
-                            # If this value is set too low you might not
-                            # let some servers to die gracefully and
-                            # 'restart' will not work
+DIETIME=10      # Time to wait for the server to die, in seconds
+                # If this value is set too low you might not
+                # let some servers to die gracefully and
+                # 'restart' will not work
 
 DAEMONUSER=${DAEMONUSER:-mongodb}
 DAEMON_OPTS=${DAEMON_OPTS:-"--unixSocketPrefix=$RUNDIR --config $CONF"}
@@ -251,20 +254,20 @@ running() {
     # No pidfile, probably no daemon present
     [ ! -f "$PIDFILE" ] && return 1
     pid=`cat ${PIDFILE}`
-    log_daemon_msg "parent pid: $pid"
+    logger "parent pid: $pid"
     running_pid ${pid} ${DAEMON} || return 1
     return 0
 }
 
 start_server() {
     test -e "$RUNDIR" || install -m 755 -o mongodb -g mongodb -d "$RUNDIR"
-    log_daemon_msg "test status: $?"
+    logger "test status: $?"
     # Start the process using the wrapper
-    log_daemon_msg "args: ${DAEMON_OPTS}"
+    logger "cmd: ${NUMACTL} ${DAEMON}, args: ${DAEMON_OPTS}"
     start-stop-daemon --background --start --pidfile ${PIDFILE} --make-pidfile \
         --exec ${NUMACTL} ${DAEMON} ${DAEMON_OPTS}
     errcode=$?
-    log_daemon_msg "start-stop-daemon status: $errcode"
+    logger "start-stop-daemon status: $errcode"
 	return ${errcode}
 }
 
@@ -302,16 +305,16 @@ case "$1" in
 	    log_daemon_msg "Starting $DESC" "$NAME"
         # Check if it's running first
         if running ;  then
-            log_progress_msg "apparently already running"
+            logger "apparently already running"
             log_end_msg 0
             exit 0
         fi
         if start_server ; then
-            log_daemon_msg "start_server $DESC" "$NAME"
+            logger "start_server $DESC" "$NAME"
             # NOTE: Some servers might die some time after they start,
             # this code will detect this issue if STARTTIME is set
             # to a reasonable value
-            log_daemon_msg "sleep: $STARTTIME"
+            logger "sleep: $STARTTIME"
             [ -n "$STARTTIME" ] && sleep ${STARTTIME} # Wait some time
             if  running ;  then
                 # It's ok, the server started and is running
@@ -398,7 +401,8 @@ EOF
     fi
 
     # start
-    systemctl daemon-reload && service mongod start
+    systemctl daemon-reload > /dev/null 2>/dev/null && \
+    service mongod start
     if [[ $? -ne 0 ]]; then
         log_error "service start mongod failed"
         return ${FAILURE}
