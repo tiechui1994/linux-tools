@@ -105,7 +105,11 @@ download_nginx() {
 download_openssl() {
     prefix="https://ftp.openssl.org/source/old"
     openssl="$(openssl version |cut -d " " -f2)"
-    url=$(printf "%s/%s/openssl-%s.tar.gz" ${prefix} ${openssl:0:${#openssl}-1} ${openssl})
+    if [[ ${openssl} =~ ^1\.[0-1]\.[0-2]$ ]]; then
+        url=$(printf "%s/%s/openssl-%s.tar.gz" ${prefix} ${openssl} ${openssl})
+    else
+        url=$(printf "%s/%s/openssl-%s.tar.gz" ${prefix} ${openssl:0:${#openssl}-1} ${openssl})
+    fi
     common_download "openssl" "$url" axel
     return $?
 }
@@ -133,7 +137,7 @@ download_proxy_connect() {
 # nginx lua
 # doc: https://github.com/openresty/lua-nginx-module#installation
 donwnload_nginx_lua() {
-    luajit="http://luajit.org/download/LuaJIT-2.0.5.tar.gz"
+    luajit="https://codeload.github.com/openresty/luajit2/tar.gz/refs/tags/v2.1-20201229"
     common_download "luajit" "$luajit" axel
     if [[ $? -ne ${success} ]]; then
         return $?
@@ -165,7 +169,8 @@ build_luajit() {
     fi
 }
 
-
+# other module
+# doc: https://openresty.org/en/download.html
 build() {
     # create nginx dir
     rm -rf ${installdir} && \
@@ -237,7 +242,7 @@ build() {
     # nginx lua
     mv /tmp/luajit ${installdir}/thirdpart/
     export LUAJIT_LIB="${installdir}/thirdpart/luajit/lib"
-    export LUAJIT_INC="${installdir}/thirdpart/luajit/include/luajit-2.0"
+    export LUAJIT_INC="${installdir}/thirdpart/luajit/include/luajit-2.1"
 
     ./configure \
     --user=www  \
@@ -628,7 +633,7 @@ EOF
     fi
 
     # start up
-    systemctl daemon-reload && service nginx start
+    service nginx start
     if [[ $? -ne 0 ]]; then
         log_error "service start nginx failed"
         return ${failure}
