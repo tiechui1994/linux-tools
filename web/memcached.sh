@@ -10,6 +10,99 @@ version=1.5.12
 workdir=$(pwd)
 installdir=/opt/local/memcached
 
+declare -r success=0
+declare -r failure=1
+
+# log
+log_error(){
+    red="\033[31;1m"
+    reset="\033[0m"
+    msg="[E] $@"
+    echo -e "$red$msg$reset"
+}
+log_warn(){
+    yellow="\033[33;1m"
+    reset="\033[0m"
+    msg="[W] $@"
+    echo -e "$yellow$msg$reset"
+}
+log_info() {
+    green="\033[32;1m"
+    reset="\033[0m"
+    msg="[I] $@"
+    echo -e "$green$msg$reset"
+}
+
+download() {
+    name=$1
+    url=$2
+    cmd=$3
+    decompress=$4
+
+    declare -A extends=(
+        ["tar"]="application/x-tar"
+        ["tgz"]="application/gzip"
+        ["tar.gz"]="application/gzip"
+        ["tar.bz2"]="application/x-bzip2"
+        ["tar.xz"]="application/x-xz"
+    )
+
+    extend="${name##*.}"
+    filename="${name%%.*}"
+    temp=${name%.*}
+    if [[ ${temp##*.} = "tar" ]]; then
+         extend="${temp##*.}.${extend}"
+         filename="${temp%%.*}"
+    fi
+
+    # uncompress file
+    if [[ -f "$name" ]]; then
+        if [[ ${decompress} && ${extends[$extend]} && $(file -i "$name") =~ ${extends[$extend]} ]]; then
+            rm -rf ${filename} && mkdir ${filename}
+            tar -xf ${name} -C ${filename} --strip-components 1
+            if [[ $? -ne 0 ]]; then
+                log_error "$name decopress failed"
+                rm -rf ${filename} && rm -rf ${name}
+                return ${failure}
+            fi
+        fi
+
+        return ${success} #2
+    fi
+
+    # download
+    log_info "$name url: $url"
+    log_info "begin to donwload $name ...."
+    rm -rf ${name}
+
+    command -v "$cmd" > /dev/null 2>&1
+    if [[ $? -eq 0 && "$cmd" == "axel" ]]; then
+        axel -n 10 --insecure --quite -o ${name} ${url}
+    else
+        curl -C - --insecure  --silent --location -o ${name} ${url}
+    fi
+    if [[ $? -ne 0 ]]; then
+        log_error "download file $name failed !!"
+        rm -rf ${name}
+        return ${failure}
+    fi
+
+    log_info "success to download $name"
+
+    # uncompress file
+    if [[ ${decompress} && ${extends[$extend]} && $(file -i "$name") =~ ${extends[$extend]} ]]; then
+        rm -rf ${filename} && mkdir ${filename}
+        tar -xf ${name} -C ${filename} --strip-components 1
+        if [[ $? -ne 0 ]]; then
+            log_error "$name decopress failed"
+            rm -rf ${filename} && rm -rf ${name}
+            return ${failure}
+        fi
+
+        return ${success} #2
+    fi
+}
+
 check_user() {
     if [[ "$(whoami)" != "root" ]];then
         echo
@@ -20,53 +113,74 @@ check_user() {
 }
 
 download_libevent() {
-    url="https://nchc.dl.sourceforge.net/project/levent/release-2.0.22-stable/libevent-2.0.22-stable.tar.gz"
+    url="https://github.com/libevent/libevent/releases/download/release-2.0.22-stable/libevent-2.0.22-stable.tar.gz"
+    download "libevent.tar.gz" "$url" curl 1
 
-    curl -o libevent.tar.gz ${url}
-
-    rm -rf ${workdir}/libevent && mkdir ${workdir}/libevent && \
-    tar -zvxf libevent.tar.gz -C ${workdir}/libevent --strip-components 1
+    return $?
 }
 
 install_libevent() {
     # 安装目录
-    rm -rf ${installdir} && mkdir -p ${installdir}/libevent
+    rm -rf ${installdir} && \
+    mkdir -p ${installdir}/libevent
 
     # 编译
-    cd  ${workdir}/libevent && \
+    cd ${workdir}/libevent
     ./configure \
     --prefix=${installdir}/libevent \
     --exec-prefix=${installdir}/libevent
 
     # 安装
-    cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
-    make -j${cpu} &&  make install
+    cpu=$(cat /proc/cpuinfo | grep 'processor' | wc -l)
+    make -j${cpu}
+    if [[ $? -ne 0 ]]; then
+        log_error "build fail"
+        return ${failure}
+    fi
 
-    # 清理
-    cd ${workdir} && rm -rf libevent*
+    make install
+    if [[ $? -ne 0 ]]; then
+        log_error "install failed"
+        return ${failure}
+    fi
 }
 
 download_memcached() {
-    prefix="https://memcached.org/files"
-    curl -o memcached-${version}.tar.gz "$prefix/memcached-$version.tar.gz"
+    prefix="https://memcached.org/files/memcached-$version.tar.gz"
+    download "memcached.tar.gz" "$url" curl 1
 
-    tar -zvxf memcached-${version}.tar.gz
+    return $?
 }
 
 install_memcached() {
-    cd ${workdir}/memcached-${version} && \
+    cd ${workdir}/memcached
+
     ./configure \
     --prefix=${installdir} \
     --exec-prefix=${installdir} \
     --with-libevent=${installdir}/libevent \
     --enable-64bit
+    if [[ $? -ne 0 ]]; then
+        log_error "configure fail"
+        return ${failure}
+    fi
 
     # 安装
-    cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
-    make -j${cpu} &&  make install
+    cpu=$(cat /proc/cpuinfo | grep 'processor' | wc -l)
+    make -j${cpu}
+    if [[ $? -ne 0 ]]; then
+        log_error "build fail"
+        return ${failure}
+    fi
+
+    make install
+    if [[ $? -ne 0 ]]; then
+        log_error "install failed"
+        return ${failure}
+    fi
 }
 
-memcached_service() {
+add_service() {
     # add user
     if [[ -z "$(cat /etc/group | grep -E '^memcached:')" ]]; then
        groupadd -r memcached
@@ -81,10 +195,13 @@ memcached_service() {
     mkdir -p ${installdir}/scripts && \
     mkdir -p ${installdir}/run
 
-    cp ${workdir}/memcached-${version}/scripts/start-memcached ${installdir}/scripts
+    # set dir mode
+    chown -R memcached:memcached ${installdir}
+
+    cp ${workdir}/memcached/scripts/start-memcached ${installdir}/scripts
 
     # add conf
-    cat > ${installdir}/etc/memcached.conf << 'EOF'
+    read -r -d '' startup <<- 'EOF'
 # memcached default config file
 # 2003 - Jay Bonci <jaybonci@debian.org>
 # This configuration file is read by the start-memcached script provided as
@@ -96,7 +213,7 @@ memcached_service() {
 -d
 
 # Log memcached's output to /opt/local/memcached/run/memcached.log
-logfile /opt/local/memcached/run/memcached.log
+logfile $dir/run/memcached.log
 
 # Be verbose
 # -v
@@ -133,15 +250,12 @@ logfile /opt/local/memcached/run/memcached.log
 # Maximize core file limit
 # -r
 EOF
-
-    # link
-    ln -sf ${installdir}/bin/memcached /usr/bin/memcached
-
-    # change owner
-    chown -R memcached:memcached ${installdir}
+    regex='$dir'
+    repl="$installdir"
+    printf "%s" "${startup//$regex/$repl}" > ${installdir}/etc/memcached.conf
 
     # add start script
-    cat > /etc/init.d/memcached << 'EOF'
+    read -r -d '' startup <<- 'EOF'
 #!/bin/bash
 ### BEGIN INIT INFO
 # Provides:            memcached
@@ -167,9 +281,8 @@ EOF
 # /etc/init.d/memcached stop server1
 # There is no "status" command.
 
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-MEMCACHED=/opt/local/memcached
-DAEMON=/usr/bin/memcached
+MEMCACHED=$dir
+DAEMON=$dir/bin/memcached
 DAEMONBOOTSTRAP=${MEMCACHED}/scripts/start-memcached
 DAEMONNAME=memcached
 DESC=memcached
@@ -262,18 +375,71 @@ else
 	exit 0
 fi
 EOF
+    regex='$dir'
+    repl="$installdir"
+    printf "%s" "${startup//$regex/$repl}" > /etc/init.d/memcached
 
-    chmod a+x /etc/init.d/memcached && \
-    update-rc.d memcached defaults
+    chmod a+x /etc/init.d/memcached && update-rc.d memcached defaults
+    if [[ $? -ne 0 ]]; then
+        log_error "update-rc failed"
+        return ${failure}
+    fi
 
-    cd ${workdir} && rm -rf memcached-${version}*
+    # start up
+    service memcached start
+    if [[ $? -ne 0 ]]; then
+        log_error "service start memcached failed"
+        return ${failure}
+    fi
+
+    # test
+    if [[ $(pgrep memcached) ]]; then
+        log_info "memcached install successfully !"
+        return ${success}
+    fi
+
+    return ${failure}
+}
+
+clean() {
+    rm -rf ${workdir}/memcached
+    rm -rf ${workdir}/memcached.tar.gz
+    rm -rf ${workdir}/libevent
+    rm -rf ${workdir}/libevent.tar.gz
 }
 
 do_install() {
     check_user
+    if [[ $? -ne ${success} ]]; then
+        return
+    fi
+
     download_libevent
+    if [[ $? -ne ${success} ]]; then
+        return
+    fi
+
     install_libevent
-    memcached_service
+    if [[ $? -ne ${success} ]]; then
+        return
+    fi
+
+    download_memcached
+    if [[ $? -ne ${success} ]]; then
+        return
+    fi
+
+    install_memcached
+    if [[ $? -ne ${success} ]]; then
+        return
+    fi
+
+    add_service
+    if [[ $? -ne ${success} ]]; then
+        return
+    fi
+
+    clean
 }
 
 do_install

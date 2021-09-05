@@ -16,70 +16,91 @@ declare -r failure=1
 
 # log
 log_error(){
-    red="\033[97;41m"
+    red="\033[31;1m"
     reset="\033[0m"
     msg="[E] $@"
     echo -e "$red$msg$reset"
 }
 log_warn(){
-    yellow="\033[90;43m"
+    yellow="\033[33;1m"
     reset="\033[0m"
     msg="[W] $@"
     echo -e "$yellow$msg$reset"
 }
 log_info() {
-    green="\033[97;42m"
+    green="\033[32;1m"
     reset="\033[0m"
     msg="[I] $@"
     echo -e "$green$msg$reset"
 }
 
-common_download() {
+download() {
     name=$1
     url=$2
     cmd=$3
+    decompress=$4
 
-    if [[ -d "$name" ]]; then
-        log_info "$name has exist"
-        return ${success} #1
+    declare -A extends=(
+        ["tar"]="application/x-tar"
+        ["tgz"]="application/gzip"
+        ["tar.gz"]="application/gzip"
+        ["tar.bz2"]="application/x-bzip2"
+        ["tar.xz"]="application/x-xz"
+    )
+
+    extend="${name##*.}"
+    filename="${name%%.*}"
+    temp=${name%.*}
+    if [[ ${temp##*.} = "tar" ]]; then
+         extend="${temp##*.}.${extend}"
+         filename="${temp%%.*}"
     fi
 
-    if [[ -f "$name.tar.gz" && -n $(file "$name.tar.gz" | grep -o 'POSIX tar archive') ]]; then
-        rm -rf ${name} && mkdir ${name}
-        tar -zvxf ${name}.tar.gz -C ${name} --strip-components 1
-        if [[ $? -ne 0 ]]; then
-            log_error "$name decopress failed"
-            rm -rf ${name} && rm -rf ${name}.tar.gz
-            return ${failure}
+    # uncompress file
+    if [[ -f "$name" ]]; then
+        if [[ ${decompress} && ${extends[$extend]} && $(file -i "$name") =~ ${extends[$extend]} ]]; then
+            rm -rf ${filename} && mkdir ${filename}
+            tar -xf ${name} -C ${filename} --strip-components 1
+            if [[ $? -ne 0 ]]; then
+                log_error "$name decopress failed"
+                rm -rf ${filename} && rm -rf ${name}
+                return ${failure}
+            fi
         fi
 
         return ${success} #2
     fi
 
+    # download
     log_info "$name url: $url"
     log_info "begin to donwload $name ...."
-    rm -rf ${name}.tar.gz
+    rm -rf ${name}
 
     command -v "$cmd" > /dev/null 2>&1
     if [[ $? -eq 0 && "$cmd" == "axel" ]]; then
-        axel -n 10 --insecure --quite -o "$name.tar.gz" ${url}
+        axel -n 10 --insecure --quite -o ${name} ${url}
     else
-        curl -C - --insecure --silent ${url} -o "$name.tar.gz"
+        curl -C - --insecure  --silent --location -o ${name} ${url}
     fi
-
     if [[ $? -ne 0 ]]; then
         log_error "download file $name failed !!"
-        rm -rf ${name}.tar.gz
+        rm -rf ${name}
         return ${failure}
     fi
 
     log_info "success to download $name"
-    rm -rf ${name} && mkdir ${name}
-    tar -zxf ${name}.tar.gz -C ${name} --strip-components 1
-    if [[ $? -ne 0 ]]; then
-        log_error "$name decopress failed"
-        rm -rf ${name} && rm -rf ${name}.tar.gz
-        return ${failure}
+
+    # uncompress file
+    if [[ ${decompress} && ${extends[$extend]} && $(file -i "$name") =~ ${extends[$extend]} ]]; then
+        rm -rf ${filename} && mkdir ${filename}
+        tar -xf ${name} -C ${filename} --strip-components 1
+        if [[ $? -ne 0 ]]; then
+            log_error "$name decopress failed"
+            rm -rf ${filename} && rm -rf ${name}
+            return ${failure}
+        fi
+
+        return ${success} #2
     fi
 }
 
@@ -98,7 +119,7 @@ insatll_depend() {
 
 download_nginx() {
     url="http://nginx.org/download/nginx-$version.tar.gz"
-    common_download "nginx" "$url" axel
+    download "nginx.tar.gz" "$url" axel 1
     return $?
 }
 
@@ -110,19 +131,19 @@ download_openssl() {
     else
         url=$(printf "%s/%s/openssl-%s.tar.gz" ${prefix} ${openssl:0:${#openssl}-1} ${openssl})
     fi
-    common_download "openssl" "$url" axel
+    download "openssl.tar.gz" "$url" axel 1
     return $?
 }
 
 download_pcre() {
     url="https://ftp.pcre.org/pub/pcre/pcre-8.38.tar.gz"
-    common_download "pcre" "$url" axel
+    download "pcre.tar.gz" "$url" axel 1
     return $?
 }
 
 download_zlib() {
     url="http://www.zlib.net/fossils/zlib-1.2.11.tar.gz"
-    common_download "zlib" "$url" axel
+    download "zlib.tar.gz" "$url" axel
     return $?
 }
 
@@ -130,7 +151,7 @@ download_zlib() {
 # doc: https://github.com/chobits/ngx_http_proxy_connect_module
 download_proxy_connect() {
     url="https://codeload.github.com/chobits/ngx_http_proxy_connect_module/tar.gz/v0.0.1"
-    common_download "ngx_http_proxy_connect_module" "$url"
+    download "ngx_http_proxy_connect_module.tar.gz" "$url" 1
     return $?
 }
 
@@ -138,19 +159,19 @@ download_proxy_connect() {
 # doc: https://github.com/openresty/lua-nginx-module#installation
 donwnload_nginx_lua() {
     luajit="https://codeload.github.com/openresty/luajit2/tar.gz/refs/tags/v2.1-20201229"
-    common_download "luajit" "$luajit" axel
+    download "luajit.tar.gz" "$luajit" axel 1
     if [[ $? -ne ${success} ]]; then
         return $?
     fi
 
     ngx_devel_kit="https://codeload.github.com/vision5/ngx_devel_kit/tar.gz/v0.3.1"
-    common_download "ngx_devel_kit" "$ngx_devel_kit"
+    download "ngx_devel_kit.tar.gz" "$ngx_devel_kit" axel 1
     if [[ $? -ne ${success} ]]; then
         return $?
     fi
 
     ngx_lua="https://codeload.github.com/openresty/lua-nginx-module/tar.gz/v0.10.14"
-    common_download "lua-nginx-module" "$ngx_lua"
+    download "lua-nginx-module.tar.gz" "$ngx_lua" axel 1
     return $?
 }
 
@@ -648,7 +669,7 @@ EOF
     return ${failure}
 }
 
-clean_file() {
+clean() {
     rm -rf ${workdir}/nginx
     rm -rf ${workdir}/nginx.tar.gz
     rm -rf ${workdir}/openssl*
@@ -713,7 +734,7 @@ do_install(){
         return
      fi
 
-     clean_file
+     clean
 }
 
 do_install

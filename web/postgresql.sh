@@ -8,82 +8,97 @@ declare -r version=10.5
 declare -r workdir=$(pwd)
 declare -r installdir=/opt/local/pgsql
 
-declare -r SUCCESS=0
-declare -r FAILURE=1
-
+declare -r success=0
+declare -r failure=1
 
 # log
 log_error(){
-    red="\033[97;41m"
+    red="\033[31;1m"
     reset="\033[0m"
     msg="[E] $@"
     echo -e "$red$msg$reset"
 }
 log_warn(){
-    yellow="\033[90;43m"
+    yellow="\033[33;1m"
     reset="\033[0m"
     msg="[W] $@"
     echo -e "$yellow$msg$reset"
 }
 log_info() {
-    green="\033[97;42m"
+    green="\033[32;1m"
     reset="\033[0m"
     msg="[I] $@"
     echo -e "$green$msg$reset"
 }
 
-common_download() {
+download() {
     name=$1
     url=$2
     cmd=$3
+    decompress=$4
 
-    if [[ -d "$name" ]]; then
-        log_info "$name has exist !!"
-        return ${SUCCESS} #1
+    declare -A extends=(
+        ["tar"]="application/x-tar"
+        ["tgz"]="application/gzip"
+        ["tar.gz"]="application/gzip"
+        ["tar.bz2"]="application/x-bzip2"
+        ["tar.xz"]="application/x-xz"
+    )
+
+    extend="${name##*.}"
+    filename="${name%%.*}"
+    temp=${name%.*}
+    if [[ ${temp##*.} = "tar" ]]; then
+         extend="${temp##*.}.${extend}"
+         filename="${temp%%.*}"
     fi
 
-    if [[ -f "$name.tar.gz" && -n $(file "$name.tar.gz" | grep -o 'POSIX tar archive') ]]; then
-        rm -rf ${name} && mkdir ${name}
-        tar -zvxf ${name}.tar.gz -C ${name} --strip-components 1
-        if [[ $? -ne 0 ]]; then
-            log_error "$name decopress failed"
-            rm -rf ${name} && rm -rf ${name}.tar.gz
-            return ${FAILURE}
+    # uncompress file
+    if [[ -f "$name" ]]; then
+        if [[ ${decompress} && ${extends[$extend]} && $(file -i "$name") =~ ${extends[$extend]} ]]; then
+            rm -rf ${filename} && mkdir ${filename}
+            tar -xf ${name} -C ${filename} --strip-components 1
+            if [[ $? -ne 0 ]]; then
+                log_error "$name decopress failed"
+                rm -rf ${filename} && rm -rf ${name}
+                return ${failure}
+            fi
         fi
 
-        return ${SUCCESS} #2
+        return ${success} #2
     fi
 
+    # download
     log_info "$name url: $url"
     log_info "begin to donwload $name ...."
-    rm -rf ${name}.tar.gz
-    command_exists "$cmd"
-    if [[ $? -eq 0 && "$cmd" == "axel" ]]; then
-        axel -n 10 --insecure --quite -o "$name.tar.gz" ${url}
-    else
-        curl -C - --insecure --silent ${url} -o "$name.tar.gz"
-    fi
+    rm -rf ${name}
 
+    command -v "$cmd" > /dev/null 2>&1
+    if [[ $? -eq 0 && "$cmd" == "axel" ]]; then
+        axel -n 10 --insecure --quite -o ${name} ${url}
+    else
+        curl -C - --insecure  --silent --location -o ${name} ${url}
+    fi
     if [[ $? -ne 0 ]]; then
         log_error "download file $name failed !!"
-        rm -rf ${name}.tar.gz
-        return ${FAILURE}
+        rm -rf ${name}
+        return ${failure}
     fi
 
     log_info "success to download $name"
-    rm -rf ${name} && mkdir ${name}
-    tar -zxf ${name}.tar.gz -C ${name} --strip-components 1
-    if [[ $? -ne 0 ]]; then
-        log_error "$name decopress failed"
-        rm -rf ${name} && rm -rf ${name}.tar.gz
-        return ${FAILURE}
+
+    # uncompress file
+    if [[ ${decompress} && ${extends[$extend]} && $(file -i "$name") =~ ${extends[$extend]} ]]; then
+        rm -rf ${filename} && mkdir ${filename}
+        tar -xf ${name} -C ${filename} --strip-components 1
+        if [[ $? -ne 0 ]]; then
+            log_error "$name decopress failed"
+            rm -rf ${filename} && rm -rf ${name}
+            return ${failure}
+        fi
+
+        return ${success} #2
     fi
-
-    return ${SUCCESS} #3
-}
-
-command_exists() {
-	command -v "$@" > /dev/null 2>&1
 }
 
 check_user() {
@@ -94,9 +109,8 @@ check_user() {
 }
 
 download_psgl() {
-    prefix=http://ftp.postgresql.org/pub/source
-    url="$prefix/v$version/postgresql-$version.tar.gz"
-    common_download "postgresql" ${url} axel
+    url="http://ftp.postgresql.org/pub/source/v$version/postgresql-$version.tar.gz"
+    download "postgresql.tar.gz" ${url} axel 1
     return $?
 }
 
@@ -105,11 +119,12 @@ build() {
         libxml2 libxml2-dev libxslt-dev bison tcl tcl-dev flex -y
     if [[ $? -ne 0 ]]; then
         log_error "install depend failed..."
-        return ${FAILURE}
+        return ${failure}
     fi
 
     rm -rf ${installdir}
-    cd ${workdir}/postgresql && \
+    cd ${workdir}/postgresql
+
     ./configure \
     --prefix=${installdir} \
     --with-tcl \
@@ -119,9 +134,9 @@ build() {
     --with-libedit-preferred \
     --with-libxml \
     --with-libxslt
-    if [[ $? -ne ${SUCCESS} ]]; then
+    if [[ $? -ne ${success} ]]; then
         log_error "configure failed..."
-        return ${FAILURE}
+        return ${failure}
     fi
 
     # make and install
@@ -129,23 +144,34 @@ build() {
     make -j ${cpu}
     if [[ $? -ne 0 ]]; then
         log_error "configure failed..."
-        return ${FAILURE}
+        return ${failure}
     fi
 
     make install
     if [[ $? -ne 0 ]]; then
         log_error "configure failed..."
-        return ${FAILURE}
+        return ${failure}
     fi
-
-    return ${SUCCESS}
 }
 
 add_service() {
+    # user and group
+    if [[ -z "$(cat /etc/group|grep -E '^postgre:')" ]]; then
+       groupadd -r postgre
+    fi
+    if [[ -z "$(cat /etc/passwd|grep -E '^postgre:')" ]]; then
+        useradd -r -g postgre -s /sbin/nologin postgre
+    fi
+
+    # dir
     mkdir -p ${installdir}/log && \
     mkdir -p ${installdir}/data && \
     mkdir -p ${installdir}/etc
 
+    # update install dir owner
+    chown -R postgre:postgre "$installdir"
+
+    # conf
     read -r -d '' conf <<-'EOF'
 #------------------------------------------------------------------------------
 # FILE LOCATIONS
@@ -320,28 +346,38 @@ log_line_prefix = '%m [%p] '		# special values:
 
 log_timezone = 'GMT'
 EOF
-
     regex='$dir'
     repl="$installdir"
     printf "%s" "${conf//$regex/$repl}" > ${installdir}/etc/pgsql.conf
 }
 
+clean() {
+    rm -rf ${workdir}/postgresql
+    rm -rf ${workdir}/postgresql.tar.gz
+}
+
 do_instll() {
     check_user
+    if [[ $? -ne ${success} ]]; then
+        return
+    fi
+
     download_psgl
-    if [[ $? -ne ${SUCCESS} ]]; then
+    if [[ $? -ne ${success} ]]; then
         return
     fi
 
     build
-    if [[ $? -ne ${SUCCESS} ]]; then
+    if [[ $? -ne ${success} ]]; then
         return
     fi
 
     add_service
-    if [[ $? -ne ${SUCCESS} ]]; then
+    if [[ $? -ne ${success} ]]; then
         return
     fi
+
+    clean
 }
 
 do_instll

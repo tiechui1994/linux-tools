@@ -7,24 +7,100 @@
 #----------------------------------------------------
 
 version="9.14.0"
-dir=$(pwd)
+workdir=$(pwd)
 installdir=/opt/local/dns
 
-cmd_exists() {
-  cmd="$1"
-  if [[ -z "$cmd" ]] ; then
-    echo "Usage: cmd_exists cmd"
-    return 1
-  fi
+declare -r success=0
+declare -r failure=1
 
-  if type command >/dev/null 2>&1 ; then
-    command -v ${cmd} >/dev/null 2>&1
-  else
-    type ${cmd} >/dev/null 2>&1
-  fi
+# log
+log_error(){
+    red="\033[31;1m"
+    reset="\033[0m"
+    msg="[E] $@"
+    echo -e "$red$msg$reset"
+}
+log_warn(){
+    yellow="\033[33;1m"
+    reset="\033[0m"
+    msg="[W] $@"
+    echo -e "$yellow$msg$reset"
+}
+log_info() {
+    green="\033[32;1m"
+    reset="\033[0m"
+    msg="[I] $@"
+    echo -e "$green$msg$reset"
+}
 
-  ret="$?"
-  return ${ret}
+download() {
+    name=$1
+    url=$2
+    cmd=$3
+    decompress=$4
+
+    declare -A extends=(
+        ["tar"]="application/x-tar"
+        ["tgz"]="application/gzip"
+        ["tar.gz"]="application/gzip"
+        ["tar.bz2"]="application/x-bzip2"
+        ["tar.xz"]="application/x-xz"
+    )
+
+    extend="${name##*.}"
+    filename="${name%%.*}"
+    temp=${name%.*}
+    if [[ ${temp##*.} = "tar" ]]; then
+         extend="${temp##*.}.${extend}"
+         filename="${temp%%.*}"
+    fi
+
+    # uncompress file
+    if [[ -f "$name" ]]; then
+        if [[ ${decompress} && ${extends[$extend]} && $(file -i "$name") =~ ${extends[$extend]} ]]; then
+            rm -rf ${filename} && mkdir ${filename}
+            tar -xf ${name} -C ${filename} --strip-components 1
+            if [[ $? -ne 0 ]]; then
+                log_error "$name decopress failed"
+                rm -rf ${filename} && rm -rf ${name}
+                return ${failure}
+            fi
+        fi
+
+        return ${success} #2
+    fi
+
+    # download
+    log_info "$name url: $url"
+    log_info "begin to donwload $name ...."
+    rm -rf ${name}
+
+    command -v "$cmd" > /dev/null 2>&1
+    if [[ $? -eq 0 && "$cmd" == "axel" ]]; then
+        axel -n 10 --insecure --quite -o ${name} ${url}
+    else
+        curl -C - --insecure  --silent --location -o ${name} ${url}
+    fi
+    if [[ $? -ne 0 ]]; then
+        log_error "download file $name failed !!"
+        rm -rf ${name}
+        return ${failure}
+    fi
+
+    log_info "success to download $name"
+
+    # uncompress file
+    if [[ ${decompress} && ${extends[$extend]} && $(file -i "$name") =~ ${extends[$extend]} ]]; then
+        rm -rf ${filename} && mkdir ${filename}
+        tar -xf ${name} -C ${filename} --strip-components 1
+        if [[ $? -ne 0 ]]; then
+            log_error "$name decopress failed"
+            rm -rf ${filename} && rm -rf ${name}
+            return ${failure}
+        fi
+
+        return ${success} #2
+    fi
 }
 
 check_param() {
@@ -38,34 +114,18 @@ check_param() {
 
 download_bind() {
     url="https://www.isc.org/downloads/file/bind-9-14-0/?version=tar-gz"
-
-    if cmd_exists curl; then
-        curl -o bind-${version}.tar.gz ${url}
-    elif cmd_exists wget; then
-        wget -o bind-${version}.tar.gz --no-check-certificate ${url}
-    elif cmd_exists axel; then
-        axel -n 10 -o bind-${version}.tar.gz ${url}
-    else
-        echo
-        echo "Sorry, you must have curl or wget installed first."
-        echo "Please install either of them and try again."
-        echo
-        exit
-    fi
-
-    tar -zvxf bind-${version}.tar.gz
+    download "bind.tar.gz" ${url} curl 1
+    return $?
 }
 
-install_depend() {
+build() {
     apt-get update && \
     apt-get install resolvconf net-tools gcc build-essential openssl libssl-dev \
     perl libperl-dev libcap-dev -y
-}
 
-make_install() {
-    rm -rf ${installdir} && mkdir -p ${installdir}
+    rm -rf ${installdir}
+    cd ${workdir}/bind
 
-    cd ${dir}/bind-${version} &&
     ./configure \
     --prefix=${installdir} \
     --exec-prefix=${installdir} \
@@ -81,15 +141,28 @@ make_install() {
     --with-libtool \
     --with-python \
     --with-openssl
+    if [[ $? -ne 0 ]]; then
+        log_error "configure fail, plaease check and try again.."
+        return ${failure}
+    fi
 
     cpu=$(cat /proc/cpuinfo |grep 'processor'|wc -l)
-    make -j${cpu} && make install
+    make -j${cpu}
+    if [[ $? -ne 0 ]]; then
+        log_error "make fail, plaease check and try again..."
+        return ${failure}
+    fi
+
+    make install
+    if [[ $? -ne 0 ]]; then
+        log_error "make install fail, plaease check and try again..."
+        return ${failure}
+    fi
 }
 
-
-bind_config() {
+add_config() {
     # root
-    cat > ${installdir}/etc/root <<-'EOF'
+    read -r -d '' conf <<- 'EOF'
 ;       This file holds the information on root name servers needed to
 ;       initialize cache of Internet domain name servers
 ;       (e.g. reference this file in the "cache  .  <file>"
@@ -181,9 +254,10 @@ M.ROOT-SERVERS.NET.      3600000      A     202.12.27.33
 M.ROOT-SERVERS.NET.      3600000      AAAA  2001:dc3::35
 ; End of file
 EOF
+    printf "%s" "${conf}" > ${installdir}/etc/root
 
     # localhost
-    cat > ${installdir}/etc/localhost <<-'EOF'
+    read -r -d '' conf <<- 'EOF'
 ;
 ; BIND data file for local loopback interface
 ;
@@ -199,9 +273,10 @@ $TTL	604800
 @	IN	A	127.0.0.1
 @	IN	AAAA	::1
 EOF
+    printf "%s" "${conf}" > ${installdir}/etc/localhost
 
     # 127.arpa
-    cat > ${installdir}/etc/127.arpa <<-'EOF'
+    read -r -d '' conf <<- 'EOF'
 ;
 ; BIND reverse data file for local loopback interface
 ;
@@ -216,9 +291,10 @@ $TTL	604800
 @	IN	NS	localhost.
 1.0.0	IN	PTR	localhost.
 EOF
+    printf "%s" "${conf}" > ${installdir}/etc/127.arpa
 
     # 0.arpa
-    cat > ${installdir}/etc/0.arpa <<-'EOF'
+    read -r -d '' conf <<- 'EOF'
 ;
 ; BIND reverse data file for broadcast zone
 ;
@@ -232,9 +308,10 @@ $TTL	604800
 ;
 @	IN	NS	localhost.
 EOF
+    printf "%s" "${conf}" > ${installdir}/etc/0.arpa
 
     # 255.arpa
-    cat > ${installdir}/etc/255.arpa <<-'EOF'
+    read -r -d '' conf <<- 'EOF'
 ;
 ; BIND reverse data file for broadcast zone
 ;
@@ -248,13 +325,14 @@ $TTL	604800
 ;
 @	IN	NS	localhost.
 EOF
+    printf "%s" "${conf}" > ${installdir}/etc/255.arpa
 
     # default-zones.conf
-    cat > ${installdir}/etc/default-zones.conf <<-'EOF'
+    read -r -d '' conf <<- 'EOF'
 // prime the server with knowledge of the root servers
 zone "." {
 	type hint;
-	file "/opt/local/dns/etc/root";
+	file "$dir/etc/root";
 };
 
 // be authoritative for the localhost forward and reverse zones, and for
@@ -262,36 +340,39 @@ zone "." {
 
 zone "localhost" {
 	type master;
-	file "/opt/local/dns/etc/localhost";
+	file "$dir/etc/localhost";
 };
 
 zone "127.in-addr.arpa" {
 	type master;
-	file "/opt/local/dns/etc/127.arpa";
+	file "$dir/etc/127.arpa";
 };
 
 zone "0.in-addr.arpa" {
 	type master;
-	file "/opt/local/dns/etc/0.arpa";
+	file "$dir/etc/0.arpa";
 };
 
 zone "255.in-addr.arpa" {
 	type master;
-	file "/opt/local/dns/etc/255.arpa";
+	file "$dir/etc/255.arpa";
 };
 EOF
+    regex='$dir'
+    repl="$installdir"
+    printf "%s" "${conf//$regex/$repl}" > ${installdir}/etc/default-zones.conf
 
     # named.conf
-    cat > ${installdir}/etc/named.conf <<-'EOF'
+    read -r -d '' conf <<- 'EOF'
 options {
     listen-on port 53 { any; };
     listen-on-v6 port 53 { ::1; };
 
-    directory "/opt/local/dns/var/named"; # server work dir
-    pid-file  "/opt/local/dns/var/run/bind.pid"; # pid file
+    directory "$dir/var/named"; # server work dir
+    pid-file  "$dir/var/run/bind.pid"; # pid file
     statistics-file "stats.txt"; # default statistis info file
     memstatistics-file "memstats.txt";   # default memory used statistis file
-    bindkeys-file "/opt/local/dns/etc/bind.keys";
+    bindkeys-file "$dir/etc/bind.keys";
 
     allow-query { any; };       # the host where can query dns
     allow-query-cache { any; }; # the host where can query cached dns
@@ -335,12 +416,15 @@ logging {
 };
 
 include "/etc/named.root.key";
-include "/opt/local/dns/etc/default-zones.conf";
+include "$dir/etc/default-zones.conf";
 EOF
+    regex='$dir'
+    repl="$installdir"
+    printf "%s" "${conf//$regex/$repl}" > ${installdir}/etc/named.conf
 }
 
-bind_service() {
-    # 创建用户组并修改权限
+add_service() {
+    # user and group
     if [[ -z "$(cat /etc/group | grep -E '^bind:')" ]]; then
         groupadd -r bind
     fi
@@ -349,7 +433,9 @@ bind_service() {
         useradd -r bind -g bind
     fi
 
-    cat > /etc/init.d/bind <<-'EOF'
+    chown -R bind:bind ${installdir}
+
+    read -r -d '' conf <<- 'EOF'
 #!/bin/sh -e
 
 ### BEGIN INIT INFO
@@ -363,8 +449,7 @@ bind_service() {
 # Short-Description: Start and stop bind
 ### END INIT INFO
 
-PATH=/sbin:/bin:/usr/sbin:/usr/bin
-DIR=/opt/local/dns
+DIR=$dir
 PIDFILE=${DIR}/var/run/bind.pid
 CONF=${DIR}/etc/named.conf
 
@@ -503,26 +588,65 @@ esac
 
 exit 0
 EOF
+    regex='$dir'
+    repl="$installdir"
+    printf "%s" "${conf//$regex/$repl}" > /etc/init.d/bind
 
-    # 权限
-    chmod a+x /etc/init.d/bind && \
-    update-rc.d nginx defaults
+    # service
+    chmod a+x /etc/init.d/bind && update-rc.d nginx defaults
+    if [[ $? -ne 0 ]]; then
+        log_error "update-rc failed"
+        return ${failure}
+    fi
 
-    # 启动
+    # start
     service bind start
+    if [[ $? -ne 0 ]]; then
+        log_error "service start nginx failed"
+        return ${failure}
+    fi
+
+    # test
+    if [[ $(pgrep nginx) ]]; then
+        log_info "nginx install successfully !"
+        return ${success}
+    fi
+
+    return ${failure}
+}
+
+clean() {
+    rm -rf ${workdir}/nginx
+    rm -rf ${workdir}/nginx.tar.gz
 }
 
 do_install() {
     check_param
-
-    if [[ ! -e ${dir}/bind-${version} ]]; then
-        download_bind
+    if [[ $? -ne ${success} ]]; then
+        return
     fi
 
-    install_depend
-    make_install
-    bind_config
-    bind_service
+    download_bind
+    if [[ $? -ne ${success} ]]; then
+        return
+    fi
+
+    build
+    if [[ $? -ne ${success} ]]; then
+        return
+    fi
+
+    add_config
+    if [[ $? -ne ${success} ]]; then
+        return
+    fi
+
+    add_service
+    if [[ $? -ne ${success} ]]; then
+        return
+    fi
+
+    clean
 }
 
 do_install
