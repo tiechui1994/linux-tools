@@ -103,7 +103,7 @@ download() {
     fi
 }
 
-check_param() {
+check() {
     if [[ "$(whoami)" != "root" ]]; then
         log_error "Please use root privileges to execute"
         exit
@@ -298,7 +298,7 @@ clean_file(){
 }
 
 do_install() {
-    check_param
+    check
 
     download_mysql
     if [[ $? -ne ${success} ]]; then
