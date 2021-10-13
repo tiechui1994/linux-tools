@@ -139,7 +139,7 @@ install() {
         return $?
     fi
 
-    rm -rf ${installdir}
+    rm -rf ${installdir} && mkdir -p ${installdir}
     cp -r ${workdir}/mongodb/* ${installdir}/
 }
 
